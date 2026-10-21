@@ -310,6 +310,7 @@ html.nogap .chapters>*{margin-bottom:10px}
 .report{display:block;width:100%;height:auto;border-radius:14px;margin:6px 0 10px;box-shadow:0 2px 10px rgba(38,64,84,.15)}
 .ahe circle{fill:#FBF8F1;stroke:#24313F;stroke-width:2}.ahe text{font-size:12px;font-weight:800;fill:#24313F;text-anchor:middle;dominant-baseline:central;font-family:-apple-system,"PingFang SC",sans-serif}
 .ahecard{background:#FBF8F1;border-radius:14px;padding:12px 14px;margin:10px 0;line-height:1.7}
+.tutdone>summary{cursor:pointer;color:var(--muted);font-size:14px;padding:6px 0}.tutdone[open]>summary{margin-bottom:8px}
 .album{background:#fff;border-radius:14px;padding:10px 14px;margin:6px 0 10px}.album summary{cursor:pointer;color:var(--ink);font-size:15px}.album summary b{color:#E8505B}
 .lives{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-top:10px}
 .life{background:#EEF2F5;border-radius:10px;padding:8px 10px;font-size:13px;color:var(--muted);line-height:1.5}.life b{display:block;color:var(--ink)}.life.on{background:#FBF8F1}
@@ -2658,6 +2659,30 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
   }
   const CONST = '<svg class="const" viewBox="0 0 220 60" aria-hidden="true"><path d="M10 44 L58 18 L104 34 L150 10 L210 28" /><circle cx="10" cy="44" r="3"/><circle cx="58" cy="18" r="4"/><circle cx="104" cy="34" r="3"/><circle cx="150" cy="10" r="5"/><circle cx="210" cy="28" r="3"/></svg>';
   const MINIMAP = '<svg class="minimap" viewBox="0 0 600 260" aria-hidden="true">\n <g class="mm-road"><path d="M60 200 L200 120 L330 170 L470 70 L560 120"/><path d="M200 120 L230 40"/><path d="M330 170 L360 240"/><path d="M470 70 L520 210"/></g>\n <g class="mm-top"><path d="M60 200 L200 120 L330 170 L470 70 L560 120"/><path d="M200 120 L230 40"/><path d="M330 170 L360 240"/><path d="M470 70 L520 210"/></g>\n <circle class="mm-ship s0" r="7"><animateMotion dur="7s" repeatCount="indefinite" path="M60 200 L200 120 L330 170 L470 70"/></circle>\n <circle class="mm-ship s1" r="6"><animateMotion dur="9s" repeatCount="indefinite" path="M560 120 L470 70 L330 170 L200 120"/></circle>\n '.concat([[60, 200, 26, "p0", "10"], [200, 120, 20, "pn", "6"], [230, 40, 16, "pn", "4"], [330, 170, 22, "p4", "8"], [360, 240, 14, "pn", "3"], [470, 70, 24, "p1", "12"], [560, 120, 18, "p2", "7"], [520, 210, 17, "p3", "5"]].map(([x, y, r, c, n]) => '<g transform="translate('.concat(x, ",").concat(y, ')"><circle class="mm-sh" cx="4" cy="6" r="').concat(r, '"/><circle class="mm-').concat(c, '" r="').concat(r, '"/><text class="mm-n').concat(c === "pn" ? " dark" : "", '">').concat(n, "</text></g>")).join(""), "\n</svg>");
+  const APPV = 20;
+  (function autoUpdate() {
+    if (location.protocol.indexOf("http") !== 0 || !window.fetch) return;
+    fetch("version.json?t=" + Date.now(), { cache: "no-store" }).then((r) => r.ok ? r.json() : null).then((j) => {
+      if (!j || !(j.v > APPV)) return;
+      let tried = 0;
+      try {
+        tried = +sessionStorage.getItem("upd") || 0;
+      } catch (e) {
+      }
+      if (tried >= j.v) return;
+      try {
+        sessionStorage.setItem("upd", String(j.v));
+      } catch (e) {
+      }
+      const go = () => location.replace(location.pathname + "?v=" + j.v);
+      const jobs = [];
+      if (window.caches) jobs.push(caches.keys().then((ks) => Promise.all(ks.map((k) => caches.delete(k)))));
+      if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) jobs.push(navigator.serviceWorker.getRegistrations().then((rs) => Promise.all(rs.map((r) => r.update().catch(() => {
+      })))));
+      Promise.all(jobs).then(go, go);
+    }).catch(() => {
+    });
+  })();
   let heroPlayed = false;
   function heroBattle() {
     const svg = document.querySelector("#home .minimap"), cap = document.getElementById("mmcap");
@@ -2728,7 +2753,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
       return "".concat(d.getMonth() + 1, "月").concat(d.getDate(), "日 ").concat(pad(d.getHours()), ":").concat(pad(d.getMinutes()));
     };
     const el = document.getElementById("home");
-    el.innerHTML = '<div class="hw">\n  <nav class="hnav"><b>星球棋</b><span><button class="sm ghost" data-act="hap" style="margin-right:6px">'.concat(HAP.on ? "震动：开" : "震动：关", '</button><button class="sm ghost" data-act="fxt" style="margin-right:8px">').concat(FX ? "动效：开" : "动效：关", '</button>不用注册 · 存档只在你的设备上</span></nav>\n  <section class="hero2">\n    <h1 class="h1">每一艘战舰上，<br>有 <em>1000</em> 个人。</h1>\n    <p class="lede">《星球棋》是一个关于战争与和平的策略小游戏。五股势力，一片星海。你可以统一它——也可以让每颗星球上的人，都过上好日子。</p>\n    ').concat(MINIMAP, '<p class="mmcap" id="mmcap" aria-live="polite"></p>\n    <div class="cta">\n      ').concat(sl ? '<button class="resume" data-act="resume"><span class="rl">继续</span><span class="rm"><b>'.concat(sl.mode, "</b><small>").concat(sl.turn, " · ").concat(sl.mine, " 颗星 · ").concat(sl.when, '</small></span><span class="ra">›</span></button>') : "", '\n      <button class="').concat(sl ? "big" : "primary big", '" data-act="chapter" data-i="').concat(next < 0 ? 0 : next, '">').concat(sl ? "开新局：" : "").concat(next <= 0 ? sl ? "第一颗星" : "开始：第一颗星" : next < 0 ? "从序章再玩一次" : (sl ? "" : "下一章：") + CHAPTERS[next].name.split(" · ")[1], '</button>\n      <button class="big" data-act="jump" data-to="full">直接玩完整版</button>\n    </div>\n    ').concat(aheAlbum(), '\n    <p class="counters"><span><b>').concat(hist.length, "</b>局</span><span><b>").concat(ends.length, "</b>/7 种结局</span><span><b>").concat(ppl(killed), "</b>人死在你的炮火下</span><span><b>").concat(ppl(lost), '</b>名你的人没能回家</span></p>\n  </section>\n  <section class="hsec"><h2>一章，只学一样东西</h2><p class="hsub">每章十几回合。没学到的功能，画面上不会出现。</p>\n  <div class="chapters">').concat(CHAPTERS.map((c, i) => '<button class="chap'.concat(i === next ? " next" : "", '" data-act="chapter" data-i="').concat(i, '"><span class="no">').concat(["序", "一", "二", "三"][i], '</span><span class="ct"><b>').concat(c.name.split(" · ")[1], "</b><small>").concat(c.line, '</small></span><span class="st">').concat(done.indexOf(c.key) >= 0 ? "✓ 通过" : i === next ? "下一章" : "", "</span></button>")).join(""), '</div></section>\n  <section class="hsec" id="full"><h2>完整的星域</h2><p class="hsub">外交、民心、金融、种族、混乱事件，全部打开。打出你自己的结局。</p>\n  <div class="setrow"><span>回合</span><div class="row">').concat(opt("turns", 40, "40")).concat(opt("turns", 60, "60")).concat(opt("turns", 100, "100")).concat(opt("turns", 0, "无尽"), '</div></div>\n  <div class="setrow"><span>难度</span><div class="row">').concat(opt("diff", "normal", "普通")).concat(opt("diff", "hard", "困难")).concat(opt("diff", "hell", "地狱"), '</div></div>\n  <div class="setrow"><span>种族</span><div class="row">').concat(Object.keys(MYRACE).map((k) => opt("race", k, MYRACE[k].name)).join(""), '</div></div>\n  <p class="hsub small">').concat(MYRACE[CFG.race].name, "——长处：").concat(MYRACE[CFG.race].plus, "；短处：").concat(MYRACE[CFG.race].minus, '。</p>\n  <div class="setrow"><span>混乱事件</span><div class="row">').concat(opt("chaos", true, "开")).concat(opt("chaos", false, "关"), '</div></div>\n  <button class="primary big wide" data-act="start">开始</button></section>\n  <section class="hsec"><h2>结局图鉴</h2><p class="hsub">在完整版里打出过的结局会亮起来。</p>\n  <div class="ends">').concat(ENDS.map(([k, n, d]) => ends.indexOf(k) >= 0 ? '<div class="end on e-'.concat(k, '"><b>').concat(n, "</b><small>").concat(d, "</small></div>") : '<div class="end"><b>？？？</b><small>还没打出来</small></div>').join(""), '</div></section>\n  <section class="hsec"><h2>我的星史</h2>').concat(hist.length ? '<ul class="hist">'.concat(hist.slice(0, 12).map((x) => '<li><span class="hd">'.concat(fd(x.t), '</span><span class="hm"><b>').concat(x.ch ? x.win ? "通过" : "未通过" : endName(x.end), "</b><small>").concat(x.mode, " · ").concat(x.turns, " 回合 · 我方阵亡 ").concat(ppl(x.dm || 0), " · 对方阵亡 ").concat(ppl(x.dt || 0), "</small></span></li>")).join(""), "</ul>") : '<p class="hsub">还没有打完过一局。打完的每一局都会记在这里，只存在你的设备上。</p>', '</section>\n  <section class="hsec"><h2>放到主屏幕</h2><p class="hsub">像 App 一样一点就开，断网也能玩。<br>iPhone / iPad：在 Safari 里点「分享」按钮，再点「添加到主屏幕」。<br>安卓：在浏览器菜单里找「添加到主屏幕」或「添加到桌面」。</p></section>\n  <footer class="hfoot">星球棋 v19 · 用 Claude 做的 · 不联网、不注册、不收集任何数据</footer>\n  </div>');
+    el.innerHTML = '<div class="hw">\n  <nav class="hnav"><b>星球棋 <small style="font-weight:500;color:var(--muted);letter-spacing:0">v'.concat(APPV, '</small></b><span><button class="sm ghost" data-act="hap" style="margin-right:6px">').concat(HAP.on ? "震动：开" : "震动：关", '</button><button class="sm ghost" data-act="fxt" style="margin-right:8px">').concat(FX ? "动效：开" : "动效：关", '</button>不用注册 · 存档只在你的设备上</span></nav>\n  <section class="hero2">\n    <h1 class="h1">每一艘战舰上，<br>有 <em>1000</em> 个人。</h1>\n    <p class="lede">《星球棋》是一个关于战争与和平的策略小游戏。五股势力，一片星海。你可以统一它——也可以让每颗星球上的人，都过上好日子。</p>\n    ').concat(MINIMAP, '<p class="mmcap" id="mmcap" aria-live="polite"></p>\n    <div class="cta">\n      ').concat(sl ? '<button class="resume" data-act="resume"><span class="rl">继续</span><span class="rm"><b>'.concat(sl.mode, "</b><small>").concat(sl.turn, " · ").concat(sl.mine, " 颗星 · ").concat(sl.when, '</small></span><span class="ra">›</span></button>') : "", "\n      ").concat(next < 0 ? '<button class="'.concat(sl ? "big" : "primary big", '" data-act="jump" data-to="full">').concat(sl ? "开新局：完整版" : "开一局完整版", "</button>") : '<button class="'.concat(sl ? "big" : "primary big", '" data-act="chapter" data-i="').concat(next, '">').concat(sl ? "开新局：" : "").concat(next <= 0 ? sl ? "第一颗星" : "开始：第一颗星" : (sl ? "" : "下一章：") + CHAPTERS[next].name.split(" · ")[1], '</button>\n      <button class="big" data-act="jump" data-to="full">直接玩完整版</button>'), "\n    </div>\n    ").concat(aheAlbum(), '\n    <p class="counters"><span><b>').concat(hist.length, "</b>局</span><span><b>").concat(ends.length, "</b>/7 种结局</span><span><b>").concat(ppl(killed), "</b>人死在你的炮火下</span><span><b>").concat(ppl(lost), "</b>名你的人没能回家</span></p>\n  </section>\n  ").concat(next < 0 ? '<details class="hsec tutdone"><summary>新手教程 · 已全部通过（点开可以重玩）</summary>' : '<section class="hsec">', '<h2>一章，只学一样东西</h2><p class="hsub">每章十几回合。没学到的功能，画面上不会出现。</p>\n  <div class="chapters">').concat(CHAPTERS.map((c, i) => '<button class="chap'.concat(i === next ? " next" : "", '" data-act="chapter" data-i="').concat(i, '"><span class="no">').concat(["序", "一", "二", "三"][i], '</span><span class="ct"><b>').concat(c.name.split(" · ")[1], "</b><small>").concat(c.line, '</small></span><span class="st">').concat(done.indexOf(c.key) >= 0 ? "✓ 通过" : i === next ? "下一章" : "", "</span></button>")).join(""), "</div>").concat(next < 0 ? "</details>" : "</section>", '\n  <section class="hsec" id="full"><h2>完整的星域</h2><p class="hsub">外交、民心、金融、种族、混乱事件，全部打开。打出你自己的结局。</p>\n  <div class="setrow"><span>回合</span><div class="row">').concat(opt("turns", 40, "40")).concat(opt("turns", 60, "60")).concat(opt("turns", 100, "100")).concat(opt("turns", 0, "无尽"), '</div></div>\n  <div class="setrow"><span>难度</span><div class="row">').concat(opt("diff", "normal", "普通")).concat(opt("diff", "hard", "困难")).concat(opt("diff", "hell", "地狱"), '</div></div>\n  <div class="setrow"><span>种族</span><div class="row">').concat(Object.keys(MYRACE).map((k) => opt("race", k, MYRACE[k].name)).join(""), '</div></div>\n  <p class="hsub small">').concat(MYRACE[CFG.race].name, "——长处：").concat(MYRACE[CFG.race].plus, "；短处：").concat(MYRACE[CFG.race].minus, '。</p>\n  <div class="setrow"><span>混乱事件</span><div class="row">').concat(opt("chaos", true, "开")).concat(opt("chaos", false, "关"), '</div></div>\n  <button class="primary big wide" data-act="start">开始</button></section>\n  <section class="hsec"><h2>结局图鉴</h2><p class="hsub">在完整版里打出过的结局会亮起来。</p>\n  <div class="ends">').concat(ENDS.map(([k, n, d]) => ends.indexOf(k) >= 0 ? '<div class="end on e-'.concat(k, '"><b>').concat(n, "</b><small>").concat(d, "</small></div>") : '<div class="end"><b>？？？</b><small>还没打出来</small></div>').join(""), '</div></section>\n  <section class="hsec"><h2>我的星史</h2>').concat(hist.length ? '<ul class="hist">'.concat(hist.slice(0, 12).map((x) => '<li><span class="hd">'.concat(fd(x.t), '</span><span class="hm"><b>').concat(x.ch ? x.win ? "通过" : "未通过" : endName(x.end), "</b><small>").concat(x.mode, " · ").concat(x.turns, " 回合 · 我方阵亡 ").concat(ppl(x.dm || 0), " · 对方阵亡 ").concat(ppl(x.dt || 0), "</small></span></li>")).join(""), "</ul>") : '<p class="hsub">还没有打完过一局。打完的每一局都会记在这里，只存在你的设备上。</p>', '</section>\n  <section class="hsec"><h2>放到主屏幕</h2><p class="hsub">像 App 一样一点就开，断网也能玩。<br>iPhone / iPad：在 Safari 里点「分享」按钮，再点「添加到主屏幕」。<br>安卓：在浏览器菜单里找「添加到主屏幕」或「添加到桌面」。</p></section>\n  <footer class="hfoot">星球棋 v').concat(APPV, " · 用 Claude 做的 · 不联网、不注册、不收集任何数据</footer>\n  </div>");
     el.classList.add("show");
     el.scrollTop = 0;
     heroBattle();
@@ -2742,6 +2767,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
     if (el) el.classList.remove("show");
   }
   function startChapter(i) {
+    liveGame = true;
     if (!CFGsave) CFGsave = Object.assign({}, CFG);
     CH = CHAPTERS[i];
     CHI = i;
@@ -3336,8 +3362,9 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
   }
   const SAVE_KEY = "xingyu.save";
   let memSave = null;
+  let liveGame = false;
   function saveGame() {
-    if (!G || G.sim || G.over) return;
+    if (!liveGame || !G || G.sim || G.over) return;
     try {
       const data = JSON.stringify({ v: 1, chi: CHI, cfg: CFG, cfgsave: CFGsave, time: Date.now(), G }, function(k, v) {
         if (k === "para" || k === "V") return void 0;
@@ -3399,6 +3426,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
     CHI = d.chi;
     CH = CHI >= 0 ? CHAPTERS[CHI] : null;
     G = d.G;
+    liveGame = true;
     G.busy = false;
     G.loanUI = null;
     G.para = null;
@@ -3663,6 +3691,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
         CH = null;
         CHI = -1;
         newGame();
+        liveGame = true;
         closeCard();
         hideHome();
         render();
