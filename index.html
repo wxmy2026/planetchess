@@ -780,6 +780,30 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
         return;
       }
     }
+    if (A.job === "pirate" && rnd() < 0.04) {
+      A.alive = false;
+      A.deathTurn = t;
+      A.cause = "pirate";
+      aheSay("海盗船被巡逻舰击沉了。船上有一个叫阿禾的人，".concat(aheAge(), " 岁。他原本只是想吃饱饭。"));
+      rep.unshift('<span class="warn">'.concat(A.news, "</span>"));
+      return;
+    }
+    if (A.job === "medic" && G.toll.mine - b.mine > 3e3 && rnd() < 0.06) {
+      A.alive = false;
+      A.deathTurn = t;
+      A.cause = "war";
+      aheSay("前线医院被炸了。阿禾死的时候，手里还按着别人的伤口。".concat(aheAge(), " 岁。"));
+      rep.unshift('<span class="warn">'.concat(A.news, "</span>"));
+      return;
+    }
+    if (A.job === "spy" && G.spyUsed && Object.keys(G.spyUsed).length && rnd() < 0.08) {
+      A.alive = false;
+      A.deathTurn = t;
+      A.cause = "spy";
+      aheSay("你派出去的探子有一个没回来。档案上没有名字——但你知道是谁。");
+      rep.unshift('<span class="warn">'.concat(A.news, "</span>"));
+      return;
+    }
     if (p.owner !== b.owner) {
       const safe = G.adj[p.id].map(P).filter((q) => q.owner === b.owner);
       const civDead = G.toll.all - b.civ > 0;
@@ -813,8 +837,27 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
         const P0 = P(A.pid), loy = loyOf(P0), warry = A.warT >= t * 0.6;
         if (A.side !== 0) {
           const ty = FACTIONS[A.side] && FACTIONS[A.side].type;
-          A.job = ty === "aggro" || ty === "vulture" || warry ? "soldier" : "farmer";
-          aheSay(A.job === "soldier" ? "阿禾 ".concat(aheAge(), " 岁，被").concat(FACTIONS[A.side].name, "征了兵。他的舰，迟早会开到你的边境上。") : "阿禾 ".concat(aheAge(), " 岁，在").concat(P0.name, "种地。他说，打仗的事，离他很远。"));
+          A.job = loy <= 25 ? "pirate" : ty === "aggro" || ty === "vulture" || warry ? "soldier" : ty === "hoard" ? "clerk" : "farmer";
+          if (A.job === "pirate" || A.job === "clerk") {
+            aheSay(A.job === "pirate" ? "阿禾 ".concat(aheAge(), " 岁。").concat(P0.name, "没饭吃了，他跟着一伙人抢了船，当了海盗。") : "阿禾 ".concat(aheAge(), " 岁，进了守财的账房。他说，数字比人好懂。"));
+          } else
+            aheSay(A.job === "soldier" ? "阿禾 ".concat(aheAge(), " 岁，被").concat(FACTIONS[A.side].name, "征了兵。他的舰，迟早会开到你的边境上。") : "阿禾 ".concat(aheAge(), " 岁，在").concat(P0.name, "种地。他说，打仗的事，离他很远。"));
+        } else if (loy <= 25) {
+          A.job = "pirate";
+          aheSay("阿禾 ".concat(aheAge(), " 岁。").concat(P0.name, "的人已经活不下去了，他抢了一艘运粮船，当了海盗。他说，不是他背叛了你，是你先不管他们的。"));
+        } else if (A.fled >= 2) {
+          A.job = "drifter";
+          aheSay("阿禾 ".concat(aheAge(), " 岁。逃了 ").concat(A.fled, " 次难，他没有家了，在各个星港之间打零工。"));
+        } else if (warry && P0.rest && loy >= 50) {
+          A.job = "medic";
+          aheSay("阿禾 ".concat(aheAge(), " 岁，当了战地医生。他说他救不过来，但总得有人去救。"));
+        } else if (Object.keys(G.spied || {}).length >= 2 && rnd() < 0.5) {
+          A.job = "spy";
+          aheSay("阿禾 ".concat(aheAge(), " 岁，被情报局挑中了。从今天起，他的名字不能再出现在信里。（你派探子时，他也在里面）"));
+        } else if (!warry && A.warT <= t * 0.2 && loy >= 75) {
+          A.job = "teacher";
+          P0.loy = Math.min(100, loyOf(P0) + 5);
+          aheSay("阿禾 ".concat(aheAge(), " 岁，当了老师。他教孩子们认星星，不教他们认敌人。（").concat(P0.name, "民心 +5）"));
         } else if (G.rep[0] >= 65 && !(warry && !P0.rest)) {
           A.job = "diplo";
           G.rep[0] = Math.min(100, G.rep[0] + 3);
@@ -836,14 +879,19 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
     }
     if (!said() && t - A.lastSay >= 7 && A.side === 0) {
       const q = P(A.pid), loy = loyOf(q);
-      aheSay(AI.some((f) => atWar(0, f)) && G.adj[q.id].some((j) => P(j).owner !== 0 && P(j).owner !== null && atWar(0, P(j).owner)) ? "".concat(q.name, "能看到前线的火光。阿禾说，晚上睡觉不敢关灯。") : loy >= 70 ? "".concat(q.name, "今年收成不错。阿禾说，街上的人开始笑了。") : loy <= 30 ? "".concat(q.name, "的人已经很久没吃饱了。阿禾说，大家看你的眼神变了。") : "".concat(q.name, "平平常常地过了一年。阿禾说，平常就挺好。"));
+      const front = AI.some((f) => atWar(0, f)) && G.adj[q.id].some((j) => P(j).owner !== 0 && P(j).owner !== null && atWar(0, P(j).owner));
+      const J = { soldier: ["他在舰上给家里写信，说伙食还行。信的最后一句被涂黑了。", "他们的舰队又换了一批新兵。阿禾说，老兵越来越少了。"], medic: ["他一天做了十一台手术。他说今天没有人死，是个好日子。"], teacher: ["他班上的孩子问：敌人长什么样？他说：跟你一样。"], engineer: ["他造的聚变炉，今年给三万户人家供了暖。"], diplo: ["他在谈判桌上坐了十四个小时，换来三个月的停火。"], farmer: ["今年的麦子比去年高。他说，土地不问你是哪一边的。"], pirate: ["他们劫了一艘运粮船，把粮食分给了路过的难民。"], drifter: ["他在星港修了一夜的船，换了一顿热饭。"], spy: ["……（这一页没有内容）"], clerk: ["他算出来，打一场仗的钱，够全星球的人吃三年。"] };
+      const pool = front ? ["".concat(q.name, "能看到前线的火光。阿禾说，晚上睡觉不敢关灯。"), "".concat(q.name, "的防空警报一晚上响了三次。阿禾数着，一直没睡。")] : loy >= 70 ? ["".concat(q.name, "今年收成不错。阿禾说，街上的人开始笑了。"), "".concat(q.name, "开了一家新剧院。阿禾说，好多年没人有心思看戏了。"), "".concat(q.name, "的孩子们开始学别的星球的语言了。")] : loy <= 30 ? ["".concat(q.name, "的人已经很久没吃饱了。阿禾说，大家看你的眼神变了。"), "".concat(q.name, "的街上，越来越多的人在讨论要不要去当海盗。"), "".concat(q.name, "的税又涨了。阿禾家把最后一头牛卖了。")] : ["".concat(q.name, "平平常常地过了一年。阿禾说，平常就挺好。"), "".concat(q.name, "下了一场流星雨。阿禾许了个愿，没告诉别人。")];
+      aheSay(A.job && J[A.job] && rnd() < 0.5 ? pick(J[A.job]) : pick(pool));
     }
   }
   function aheLife() {
     const A = G.ahe;
     if (!A) return "";
-    const J = { soldier: "当兵", diplo: "当外交官", engineer: "当工程师", farmer: "种地" }[A.job] || "";
+    const J = { soldier: "当兵", diplo: "当外交官", engineer: "当工程师", farmer: "种地", pirate: "当海盗", drifter: "四处流浪", medic: "当战地医生", spy: "当探子", teacher: "当老师", clerk: "当账房" }[A.job] || "";
     const age = A.alive ? aheAge() : Math.round(6 + (A.deathTurn - 1) * 6 / A.len);
+    if (!A.alive && A.cause === "pirate") return "当海盗的第 ".concat(Math.max(1, age - 17), " 年，被击沉，").concat(age, " 岁。他原本只是想吃饱饭。");
+    if (!A.alive && A.cause === "spy") return "当探子的第 ".concat(Math.max(1, age - 17), " 年，没有回来。档案上没有他的名字。");
     if (!A.alive) return A.cause === "you" ? "死在你的炮火下，".concat(age, " 岁。").concat(A.born !== 0 ? "他出生在对面，从来没见过你。" : "") : "".concat(J ? "".concat(J, "的第 ").concat(Math.max(1, age - 17), " 年，") : "", "死在战争里，").concat(age, " 岁。");
     if (!J) return "".concat(age, " 岁，还是个孩子。这一局结束时，他还活着。");
     return "".concat(J, "，活到了这一局结束，").concat(age, " 岁").concat(A.fled ? "，逃过 ".concat(A.fled, " 次难") : "").concat(A.side !== 0 ? "，最后住在".concat(FACTIONS[A.side].name, "的地盘上") : "", "。");
@@ -1778,6 +1826,27 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
     noHire: { 1: ["你？给我干活？我怕你半夜放火。"], 2: ["你的信用记录……抱歉，我们不招。"], 3: ["不要。看见你就烦。"], 4: ["抱歉，我们这边现在不方便。"] },
     wageCut: { 1: ["这回合效益不好，工钱减半。"], 2: ["工钱扣一半，抵你上回合的损耗。"], 3: ["工钱？我先替你保管一半。"], 4: ["这回合我们也紧张，只能先付一半。"] }
   };
+  const LINES2 = {
+    askAlly: { 1: ["你那几艘破船，加上我的，够吓唬人了。签不签？", "我不喜欢你。但我更不喜欢守财。结盟。"], 2: ["一份长期合同：你出地盘，我出钱，大家都有赚。", "盟友是最好的客户。考虑一下？"], 3: ["结盟吧。我保证……至少这几回合不捅你。", "我们俩联手，别人睡觉都会睁一只眼。"], 4: ["星海太大了，一个人走会害怕。一起吧？", "我们想和你一起，把仗少打一点。"] },
+    askPeace: { 1: ["今天先放你一马。别得意，我的船还在造。", "再打下去，我的兵要造反了。停。"], 2: ["战争的账我算过了：赔本。停战，各回各家。", "打仗是最差的投资。我认赔，停手吧。"], 3: ["休战。不是我怕你，是我还没想好怎么赢。", "好吧好吧，你赢这一回。下回可不一定。"], 4: ["我们的城里每天都有葬礼。求你，停下来吧。", "孩子们问我，为什么天上一直在下火。我们停战好吗？"] },
+    yes: { 1: ["痛快。我就喜欢痛快人。", "定了。谁反悔谁是孙子。"], 2: ["签字，盖章，生效。", "你这单我接了。"], 3: ['成交。我会好好"珍惜"的。', "嘿嘿，好啊。"], 4: ["太好了，我们会记住你的善意。", "我们相信你。请别让我们失望。"] },
+    no: { 1: ["省省吧。我的答案是炮口说的。", "你求错人了。"], 2: ["风险太高，收益太低。驳回。", "这个价，连利息都不够。"], 3: ["我考虑了零点一秒。不行。", "你的提议很好，所以我拒绝。"], 4: ["我们投票了，没通过。对不起。", "也许以后吧，现在真的不行。"] },
+    war: { 1: ["我数到三。一。", "铁拳不需要理由。"], 2: ["市场需要扩张，而你正好在我的扩张路线上。", "我已经把你的星球标好价了。"], 3: ["你病了？那我就来了。", "趁你病，要你命——这是我的座右铭。"], 4: ["我们不想这样的……但你逼我们拿起武器。", "对不起。为了我们的孩子，必须这么做。"] },
+    hit: { 1: ["敢动我？我拆了你的港口！", "血债血偿。"], 2: ["这笔损失，我会十倍讨回来。", "你刚刚做了一笔非常糟糕的交易。"], 3: ["疼……但我会记很久很久。", "好啊，你也会咬人了。"], 4: ["我们……我们会保护自己的。", "为什么？我们一直对你那么好。"] },
+    betray: { 1: ["盟约到期了。我说到期就到期。", "你太弱了，跟着你我丢人。"], 2: ["商业环境变了，合同作废。", "我找到更划算的合作方了。"], 3: ["惊喜！", "你怎么才发现？"], 4: ["我们必须先保护自己的人民，对不起。", "你变了，我们害怕了。"] }
+  };
+  LINES2.good = {
+    war: { 1: ["人人都说你是好人。好人，最好打。"], 2: ["你名声太好了，打你连保险都不用买。"], 3: ["大圣人，来让我看看你的星球有多干净。"], 4: ["我们……我们也不想打一个好人。可是没办法。"] },
+    askAlly: { 1: ["你的人都说你好。我信一次。"], 2: ["跟名声好的人做生意，最省心。"], 3: ["你这么受欢迎，靠着你，我也能沾点光。"], 4: ["大家都说你待人民好。我们想和你站在一起。"] },
+    askPeace: { 1: ["……你的人宁愿死也不投降。我服了。"], 2: ["跟你打，我的商队都不愿意出门了。停吧。"], 3: ["你在外面名声太好，打你我的人都不干了。"], 4: ["我们知道你不是坏人。请停下吧。"] },
+    yes: { 1: ["看在你是个体面人的份上。"], 2: ["信用好的人，我愿意多给点面子。"], 3: ["好吧，对你，我少使点坏。"], 4: ["我们信任你。"] }
+  };
+  LINES2.bad = {
+    war: { 1: ["你手上的血，比我还多。我来替天行道——顺便拿点星球。"], 2: ["一个屠夫的星球，打折出售中。"], 3: ["连我都看不下去了。你完了。"], 4: ["你杀了太多人。我们不能再沉默了。"] },
+    askAlly: { 1: ["你够狠。我欣赏狠人。"], 2: ["名声差点没关系，只要钱是真的。"], 3: ["坏人和坏人，最适合结盟。"], 4: ["……我们怕你。如果结盟，你能放过我们吗？"] },
+    askPeace: { 1: ["疯子。停战，我不想跟疯子耗。"], 2: ["你连平民都打。我认输，求你别再打了。"], 3: ["你比我还没底线。我投降。"], 4: ["求你，放过我们的城市。"] },
+    no: { 1: ["跟你？我嫌脏。"], 2: ["你的信用，在整个星域都是负数。"], 3: ["连我都不信你。"], 4: ["你的人民在受苦，我们不和这样的人做交易。"] }
+  };
   const OOC = {
     1: ["……其实我小时候想当诗人的。算了，当我没说。", "我也想有人陪我喝杯茶啊！为什么大家只会怕我！"],
     2: ["去他的复利！老子不算了！", "我受够了！天天对着账本！我要去种花！"],
@@ -1810,11 +1879,29 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
     else if (emo && rnd() < 0.25) {
       text = pick(OOC[f]);
       ooc = true;
-    } else text = fillT(pick(LINES[key][f]), vars);
+    } else {
+      const r = G.rep ? G.rep[0] : 50, ex = r >= 70 ? LINES2.good : r <= 30 ? LINES2.bad : null, pool = (LINES[key][f] || []).concat(LINES2[key] && LINES2[key][f] || []);
+      text = fillT(ex && ex[key] && ex[key][f] && rnd() < 0.45 ? pick(ex[key][f]) : pick(pool), vars);
+    }
     G.talk.push({ turn: G.turn, f, who, text, ooc });
     return text;
   }
   const bubble = (t) => '<div class="bub '.concat(t.who).concat(t.who === "them" ? " b" + t.f : "", '"><small>').concat(t.who === "you" ? "你 → " + FACTIONS[t.f].name : FACTIONS[t.f].name).concat(t.ooc ? '<span class="ooc">失态</span>' : "", "</small>").concat(t.text, "</div>");
+  function unrestPirates() {
+    if (CH || !has("loy") || G.sim) return;
+    for (let f = 0; f < 5; f++) {
+      const bad = G.planets.filter((p2) => p2.owner === f && loyOf(p2) < 20 && !(p2.home && loyOf(p2) > 12));
+      if (!bad.length || rnd() > Math.min(0.22, 0.08 + 0.02 * bad.length)) continue;
+      const p = bad.sort((a, b) => loyOf(a) - loyOf(b))[0];
+      const nb = G.adj[p.id].map(P).filter((q) => q.owner === f && !G.pending.some((e) => e.planet === q.id));
+      const tg = nb.length ? nb.sort((a, b) => b.yield - a.yield)[0] : null;
+      if (!tg) continue;
+      const took = Math.min(p.ships, Math.ceil(p.yield / 3)), n = Math.round(3 + p.yield / 2 + took + G.turn * 0.15);
+      p.ships -= took;
+      G.pending.push({ type: "pirate", due: G.turn + 1, planet: tg.id, n, you: f === 0, warned: G.turn, from: p.id });
+      G.events.push({ you: f === 0, planet: tg.id, text: "".concat(p.name, "（").concat(f === 0 ? "你的星球" : FACTIONS[f].name + "的", "）的人过不下去了：一批人抢了 ").concat(took, " 艘船去当海盗，凑了 ").concat(n, " 艘，下回合结束时要打 ").concat(tg.name, "。") });
+    }
+  }
   function rollEvents() {
     G.events = [];
     if (G.cost !== 5 && G.turn > G.costUntil) {
@@ -2191,6 +2278,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
       return;
     }
     rollEvents();
+    unrestPirates();
     aiDiplomacy();
     if (huntMsg) G.events.unshift({ you: true, text: huntMsg });
     G.msgSeen = false;
@@ -2605,7 +2693,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
       return "".concat(d.getMonth() + 1, "月").concat(d.getDate(), "日 ").concat(pad(d.getHours()), ":").concat(pad(d.getMinutes()));
     };
     const el = document.getElementById("home");
-    el.innerHTML = '<div class="hw">\n  <nav class="hnav"><b>星球棋</b><span><button class="sm ghost" data-act="hap" style="margin-right:6px">'.concat(HAP.on ? "震动：开" : "震动：关", '</button><button class="sm ghost" data-act="fxt" style="margin-right:8px">').concat(FX ? "动效：开" : "动效：关", '</button>不用注册 · 存档只在你的设备上</span></nav>\n  <section class="hero2">\n    <h1 class="h1">每一艘战舰上，<br>有 <em>1000</em> 个人。</h1>\n    <p class="lede">《星球棋》是一个关于战争与和平的策略小游戏。五股势力，一片星海。你可以统一它——也可以让每颗星球上的人，都过上好日子。</p>\n    ').concat(MINIMAP, '<p class="mmcap" id="mmcap" aria-live="polite"></p>\n    <div class="cta">\n      ').concat(sl ? '<button class="resume" data-act="resume"><span class="rl">继续</span><span class="rm"><b>'.concat(sl.mode, "</b><small>").concat(sl.turn, " · ").concat(sl.mine, " 颗星 · ").concat(sl.when, '</small></span><span class="ra">›</span></button>') : "", '\n      <button class="primary big" data-act="chapter" data-i="').concat(next < 0 ? 0 : next, '">').concat(next <= 0 ? "开始：第一颗星" : next < 0 ? "从序章再玩一次" : "继续学：" + CHAPTERS[next].name.split(" · ")[1], '</button>\n      <button class="big" data-act="jump" data-to="full">直接玩完整版</button>\n    </div>\n    <p class="counters"><span><b>').concat(hist.length, "</b>局</span><span><b>").concat(ends.length, "</b>/7 种结局</span><span><b>").concat(ppl(killed), "</b>人死在你的炮火下</span><span><b>").concat(ppl(lost), '</b>名你的人没能回家</span></p>\n  </section>\n  <section class="hsec"><h2>一章，只学一样东西</h2><p class="hsub">每章十几回合。没学到的功能，画面上不会出现。</p>\n  <div class="chapters">').concat(CHAPTERS.map((c, i) => '<button class="chap'.concat(i === next ? " next" : "", '" data-act="chapter" data-i="').concat(i, '"><span class="no">').concat(["序", "一", "二", "三"][i], '</span><span class="ct"><b>').concat(c.name.split(" · ")[1], "</b><small>").concat(c.line, '</small></span><span class="st">').concat(done.indexOf(c.key) >= 0 ? "✓ 通过" : i === next ? "下一章" : "", "</span></button>")).join(""), '</div></section>\n  <section class="hsec" id="full"><h2>完整的星域</h2><p class="hsub">外交、民心、金融、种族、混乱事件，全部打开。打出你自己的结局。</p>\n  <div class="setrow"><span>回合</span><div class="row">').concat(opt("turns", 40, "40")).concat(opt("turns", 60, "60")).concat(opt("turns", 100, "100")).concat(opt("turns", 0, "无尽"), '</div></div>\n  <div class="setrow"><span>难度</span><div class="row">').concat(opt("diff", "normal", "普通")).concat(opt("diff", "hard", "困难")).concat(opt("diff", "hell", "地狱"), '</div></div>\n  <div class="setrow"><span>种族</span><div class="row">').concat(Object.keys(MYRACE).map((k) => opt("race", k, MYRACE[k].name)).join(""), '</div></div>\n  <p class="hsub small">').concat(MYRACE[CFG.race].name, "——长处：").concat(MYRACE[CFG.race].plus, "；短处：").concat(MYRACE[CFG.race].minus, '。</p>\n  <div class="setrow"><span>混乱事件</span><div class="row">').concat(opt("chaos", true, "开")).concat(opt("chaos", false, "关"), '</div></div>\n  <button class="primary big wide" data-act="start">开始</button></section>\n  <section class="hsec"><h2>结局图鉴</h2><p class="hsub">在完整版里打出过的结局会亮起来。</p>\n  <div class="ends">').concat(ENDS.map(([k, n, d]) => ends.indexOf(k) >= 0 ? '<div class="end on e-'.concat(k, '"><b>').concat(n, "</b><small>").concat(d, "</small></div>") : '<div class="end"><b>？？？</b><small>还没打出来</small></div>').join(""), '</div></section>\n  <section class="hsec"><h2>我的星史</h2>').concat(hist.length ? '<ul class="hist">'.concat(hist.slice(0, 12).map((x) => '<li><span class="hd">'.concat(fd(x.t), '</span><span class="hm"><b>').concat(x.ch ? x.win ? "通过" : "未通过" : endName(x.end), "</b><small>").concat(x.mode, " · ").concat(x.turns, " 回合 · 我方阵亡 ").concat(ppl(x.dm || 0), " · 对方阵亡 ").concat(ppl(x.dt || 0), "</small></span></li>")).join(""), "</ul>") : '<p class="hsub">还没有打完过一局。打完的每一局都会记在这里，只存在你的设备上。</p>', '</section>\n  <section class="hsec"><h2>放到主屏幕</h2><p class="hsub">像 App 一样一点就开，断网也能玩。<br>iPhone / iPad：在 Safari 里点「分享」按钮，再点「添加到主屏幕」。<br>安卓：在浏览器菜单里找「添加到主屏幕」或「添加到桌面」。</p></section>\n  <footer class="hfoot">星球棋 v17 · 用 Claude 做的 · 不联网、不注册、不收集任何数据</footer>\n  </div>');
+    el.innerHTML = '<div class="hw">\n  <nav class="hnav"><b>星球棋</b><span><button class="sm ghost" data-act="hap" style="margin-right:6px">'.concat(HAP.on ? "震动：开" : "震动：关", '</button><button class="sm ghost" data-act="fxt" style="margin-right:8px">').concat(FX ? "动效：开" : "动效：关", '</button>不用注册 · 存档只在你的设备上</span></nav>\n  <section class="hero2">\n    <h1 class="h1">每一艘战舰上，<br>有 <em>1000</em> 个人。</h1>\n    <p class="lede">《星球棋》是一个关于战争与和平的策略小游戏。五股势力，一片星海。你可以统一它——也可以让每颗星球上的人，都过上好日子。</p>\n    ').concat(MINIMAP, '<p class="mmcap" id="mmcap" aria-live="polite"></p>\n    <div class="cta">\n      ').concat(sl ? '<button class="resume" data-act="resume"><span class="rl">继续</span><span class="rm"><b>'.concat(sl.mode, "</b><small>").concat(sl.turn, " · ").concat(sl.mine, " 颗星 · ").concat(sl.when, '</small></span><span class="ra">›</span></button>') : "", '\n      <button class="').concat(sl ? "big" : "primary big", '" data-act="chapter" data-i="').concat(next < 0 ? 0 : next, '">').concat(sl ? "开新局：" : "").concat(next <= 0 ? sl ? "第一颗星" : "开始：第一颗星" : next < 0 ? "从序章再玩一次" : (sl ? "" : "下一章：") + CHAPTERS[next].name.split(" · ")[1], '</button>\n      <button class="big" data-act="jump" data-to="full">直接玩完整版</button>\n    </div>\n    <p class="counters"><span><b>').concat(hist.length, "</b>局</span><span><b>").concat(ends.length, "</b>/7 种结局</span><span><b>").concat(ppl(killed), "</b>人死在你的炮火下</span><span><b>").concat(ppl(lost), '</b>名你的人没能回家</span></p>\n  </section>\n  <section class="hsec"><h2>一章，只学一样东西</h2><p class="hsub">每章十几回合。没学到的功能，画面上不会出现。</p>\n  <div class="chapters">').concat(CHAPTERS.map((c, i) => '<button class="chap'.concat(i === next ? " next" : "", '" data-act="chapter" data-i="').concat(i, '"><span class="no">').concat(["序", "一", "二", "三"][i], '</span><span class="ct"><b>').concat(c.name.split(" · ")[1], "</b><small>").concat(c.line, '</small></span><span class="st">').concat(done.indexOf(c.key) >= 0 ? "✓ 通过" : i === next ? "下一章" : "", "</span></button>")).join(""), '</div></section>\n  <section class="hsec" id="full"><h2>完整的星域</h2><p class="hsub">外交、民心、金融、种族、混乱事件，全部打开。打出你自己的结局。</p>\n  <div class="setrow"><span>回合</span><div class="row">').concat(opt("turns", 40, "40")).concat(opt("turns", 60, "60")).concat(opt("turns", 100, "100")).concat(opt("turns", 0, "无尽"), '</div></div>\n  <div class="setrow"><span>难度</span><div class="row">').concat(opt("diff", "normal", "普通")).concat(opt("diff", "hard", "困难")).concat(opt("diff", "hell", "地狱"), '</div></div>\n  <div class="setrow"><span>种族</span><div class="row">').concat(Object.keys(MYRACE).map((k) => opt("race", k, MYRACE[k].name)).join(""), '</div></div>\n  <p class="hsub small">').concat(MYRACE[CFG.race].name, "——长处：").concat(MYRACE[CFG.race].plus, "；短处：").concat(MYRACE[CFG.race].minus, '。</p>\n  <div class="setrow"><span>混乱事件</span><div class="row">').concat(opt("chaos", true, "开")).concat(opt("chaos", false, "关"), '</div></div>\n  <button class="primary big wide" data-act="start">开始</button></section>\n  <section class="hsec"><h2>结局图鉴</h2><p class="hsub">在完整版里打出过的结局会亮起来。</p>\n  <div class="ends">').concat(ENDS.map(([k, n, d]) => ends.indexOf(k) >= 0 ? '<div class="end on e-'.concat(k, '"><b>').concat(n, "</b><small>").concat(d, "</small></div>") : '<div class="end"><b>？？？</b><small>还没打出来</small></div>').join(""), '</div></section>\n  <section class="hsec"><h2>我的星史</h2>').concat(hist.length ? '<ul class="hist">'.concat(hist.slice(0, 12).map((x) => '<li><span class="hd">'.concat(fd(x.t), '</span><span class="hm"><b>').concat(x.ch ? x.win ? "通过" : "未通过" : endName(x.end), "</b><small>").concat(x.mode, " · ").concat(x.turns, " 回合 · 我方阵亡 ").concat(ppl(x.dm || 0), " · 对方阵亡 ").concat(ppl(x.dt || 0), "</small></span></li>")).join(""), "</ul>") : '<p class="hsub">还没有打完过一局。打完的每一局都会记在这里，只存在你的设备上。</p>', '</section>\n  <section class="hsec"><h2>放到主屏幕</h2><p class="hsub">像 App 一样一点就开，断网也能玩。<br>iPhone / iPad：在 Safari 里点「分享」按钮，再点「添加到主屏幕」。<br>安卓：在浏览器菜单里找「添加到主屏幕」或「添加到桌面」。</p></section>\n  <footer class="hfoot">星球棋 v18 · 用 Claude 做的 · 不联网、不注册、不收集任何数据</footer>\n  </div>');
     el.classList.add("show");
     el.scrollTop = 0;
     heroBattle();
@@ -2646,7 +2734,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
       Object.assign(CFG, CFGsave);
       CFGsave = null;
     }
-    openCard('<p class="eyebrow">正式星域</p><h2>布置你的星海</h2><p class="sub">所有系统全开。打出你自己的结局：星海共和、一统、盟主……</p>\n  <h3>回合数</h3><div class="row">'.concat(opt("turns", 20, "20 回合")).concat(opt("turns", 40, "40 回合")).concat(opt("turns", 60, "60 回合")).concat(opt("turns", 100, "100 回合")).concat(opt("turns", 0, "无尽"), "</div>").concat(CFG.turns === 0 ? '<p class="hint">无尽模式：没有回合上限，直到打出某个结局，或者你自己点「收手」。</p>' : "", '\n  <p class="hint">20 回合 24 颗星球；40 回合以上换成 35 颗星球的大地图。</p>\n  <h3>难度</h3><div class="row">').concat(opt("diff", "normal", "普通")).concat(opt("diff", "hard", "困难")).concat(opt("diff", "hell", "地狱"), '</div>\n  <p class="hint">').concat(DIFF[CFG.diff].desc, '</p>\n  <h3>你的种族</h3><div class="row">').concat(Object.keys(MYRACE).map((k) => opt("race", k, MYRACE[k].name)).join(""), '</div>\n  <p class="hint">长处：').concat(MYRACE[CFG.race].plus, "。短处：").concat(MYRACE[CFG.race].minus, '。</p>\n  <h3>混乱事件</h3><div class="row">').concat(opt("chaos", true, "开")).concat(opt("chaos", false, "关"), '</div>\n  <p class="hint">太阳风暴封航道、叛乱、海盗突袭、矿脉枯竭、新矿、虫洞、零件短缺，偶尔也有好事。大多数坏事会提前一回合预警。</p>\n  <details class="rules"><summary>完整规则（想细看再展开）</summary>\n  <ol>\n    <li>每回合，你的星球产出能源，通常 5 能源造 1 艘舰。</li>\n    <li>点你的星球（蓝色）造舰，再点一颗相邻星球出兵或调动。</li>\n    <li>派出的舰要多于「守军 ×（1 + 防御）」才能拿下。</li>\n    <li>点「结束这回合」后，你和四个势力同时行动。</li>\n    <li>每颗星球上都有人生活，每艘战舰上有 1000 名船员。每一仗死了多少人，都会告诉你。</li>\n    <li>每颗星球有自己的风骨：保命求生、宁死不屈、全民皆兵、军人护民。投降的人数、死的是士兵还是平民、会不会回来复国，都不一样。</li>\n    <li>你可以让星球全力生产（专政），也可以给人民减负（民主）：产出少，但民心高，人民会为你而战。太平年代全力生产，民心会停在 25 左右；打仗时还会继续往下掉，压榨过头的星球会起义。</li>\n    <li>每一家都有名声，看治下民心、减负程度、屠戮平民、违约和挑起战争。名声远好于对方时，被你打下的人民更愿意归顺；名声到 70 以上，远方的星球会主动来投奔。</li>\n    <li>打下一颗星球：一部分守军会投降加入你（多少看风骨），还能缴获对方国库里属于这颗星球那份的三分之一。灭掉一个势力，它剩下的能源全归你。</li>\n    <li>开局你和所有人都是和平：要打别人的星球得先宣战。抢谁的星球，谁就讨厌你；讨厌你的人大概率会对你宣战。铁拳和秃鹫还会盯上兵力比它们弱得多的邻居，不管关系好坏。</li>\n    <li>战争烧掉所有人的饭碗：星域里每多一场战争，各家收入少 4%（最多少 20%）；一场仗都没有时，各家收入多 10%。</li>\n    <li>可以和任何人结盟、求和、借钱。借钱要拿星球作抵押，到期还不上，抵押的星球就归债主；别人也会来找你借。</li>\n    <li>能源连续两回合囤太多，会被对手侦察到，三家会趁你前线空虚一起来打。</li>\n  </ol>\n  ').concat([1, 2, 3, 4].map((f) => '<p><span class="dot d'.concat(f, '"></span><b>').concat(FACTIONS[f].name, "·").concat(RACE[f].name, "</b>：").concat(FACTIONS[f].desc, '。<br><small class="hint">长处：').concat(RACE[f].plus, "；短处：").concat(RACE[f].minus, "</small></p>")).join(""), '\n  <p class="hint">结局：星海共和（所有人和平十回合、人民都安居乐业）、一统星域、盟主、连环爆雷、你被灭（破产后可以先打工翻身）、时间到。你可以去调停别人之间的战争。</p>\n  <p class="hint">双圈是要塞星球，产能低但难打。红色虚线是被风暴封住的航道，紫色弧线是虫洞。星球旁的红色「!」表示它被事件点名了。</p>\n  </details>\n  <div class="row" style="margin-top:18px"><button class="primary big" data-act="start">开始</button><button data-act="menu">返回</button></div>'));
+    openCard('<p class="eyebrow">正式星域</p><h2>布置你的星海</h2><p class="sub">所有系统全开。打出你自己的结局：星海共和、一统、盟主……</p>\n  <h3>回合数</h3><div class="row">'.concat(opt("turns", 20, "20 回合")).concat(opt("turns", 40, "40 回合")).concat(opt("turns", 60, "60 回合")).concat(opt("turns", 100, "100 回合")).concat(opt("turns", 0, "无尽"), "</div>").concat(CFG.turns === 0 ? '<p class="hint">无尽模式：没有回合上限，直到打出某个结局，或者你自己点「收手」。</p>' : "", '\n  <p class="hint">20 回合 24 颗星球；40 回合以上换成 35 颗星球的大地图。</p>\n  <h3>难度</h3><div class="row">').concat(opt("diff", "normal", "普通")).concat(opt("diff", "hard", "困难")).concat(opt("diff", "hell", "地狱"), '</div>\n  <p class="hint">').concat(DIFF[CFG.diff].desc, '</p>\n  <h3>你的种族</h3><div class="row">').concat(Object.keys(MYRACE).map((k) => opt("race", k, MYRACE[k].name)).join(""), '</div>\n  <p class="hint">长处：').concat(MYRACE[CFG.race].plus, "。短处：").concat(MYRACE[CFG.race].minus, '。</p>\n  <h3>混乱事件</h3><div class="row">').concat(opt("chaos", true, "开")).concat(opt("chaos", false, "关"), '</div>\n  <p class="hint">太阳风暴封航道、叛乱、海盗突袭、矿脉枯竭、新矿、虫洞、零件短缺，偶尔也有好事。大多数坏事会提前一回合预警。</p>\n  <details class="rules"><summary>完整规则（想细看再展开）</summary>\n  <ol>\n    <li>每回合，你的星球产出能源，通常 5 能源造 1 艘舰。</li>\n    <li>点你的星球（蓝色）造舰，再点一颗相邻星球出兵或调动。</li>\n    <li>派出的舰要多于「守军 ×（1 + 防御）」才能拿下。</li>\n    <li>点「结束这回合」后，你和四个势力同时行动。</li>\n    <li>每颗星球上都有人生活，每艘战舰上有 1000 名船员。每一仗死了多少人，都会告诉你。</li>\n    <li>每颗星球有自己的风骨：保命求生、宁死不屈、全民皆兵、军人护民。投降的人数、死的是士兵还是平民、会不会回来复国，都不一样。</li>\n    <li>你可以让星球全力生产（专政），也可以给人民减负（民主）：产出少，但民心高，人民会为你而战。太平年代全力生产，民心会停在 25 左右；打仗时还会继续往下掉。民心跌破 20，过不下去的人会抢船去当海盗；压榨过头的星球会起义。</li>\n    <li>每一家都有名声，看治下民心、减负程度、屠戮平民、违约和挑起战争。名声远好于对方时，被你打下的人民更愿意归顺；名声到 70 以上，远方的星球会主动来投奔。</li>\n    <li>打下一颗星球：一部分守军会投降加入你（多少看风骨），还能缴获对方国库里属于这颗星球那份的三分之一。灭掉一个势力，它剩下的能源全归你。</li>\n    <li>开局你和所有人都是和平：要打别人的星球得先宣战。抢谁的星球，谁就讨厌你；讨厌你的人大概率会对你宣战。铁拳和秃鹫还会盯上兵力比它们弱得多的邻居，不管关系好坏。</li>\n    <li>战争烧掉所有人的饭碗：星域里每多一场战争，各家收入少 4%（最多少 20%）；一场仗都没有时，各家收入多 10%。</li>\n    <li>可以和任何人结盟、求和、借钱。借钱要拿星球作抵押，到期还不上，抵押的星球就归债主；别人也会来找你借。</li>\n    <li>能源连续两回合囤太多，会被对手侦察到，三家会趁你前线空虚一起来打。</li>\n  </ol>\n  ').concat([1, 2, 3, 4].map((f) => '<p><span class="dot d'.concat(f, '"></span><b>').concat(FACTIONS[f].name, "·").concat(RACE[f].name, "</b>：").concat(FACTIONS[f].desc, '。<br><small class="hint">长处：').concat(RACE[f].plus, "；短处：").concat(RACE[f].minus, "</small></p>")).join(""), '\n  <p class="hint">结局：星海共和（所有人和平十回合、人民都安居乐业）、一统星域、盟主、连环爆雷、你被灭（破产后可以先打工翻身）、时间到。你可以去调停别人之间的战争。</p>\n  <p class="hint">双圈是要塞星球，产能低但难打。红色虚线是被风暴封住的航道，紫色弧线是虫洞。星球旁的红色「!」表示它被事件点名了。</p>\n  </details>\n  <div class="row" style="margin-top:18px"><button class="primary big" data-act="start">开始</button><button data-act="menu">返回</button></div>'));
   }
   function openCard(h) {
     document.getElementById("card").innerHTML = h;
@@ -2838,7 +2926,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
   function panelOwn(p) {
     const a = avail(p.id), c = committed(p.id), maxB = Math.floor(G.energy[0] / shipCost(0));
     const BUILD = "<h3>造舰（".concat(shipCost(0), " 能源 1 艘，你有 ").concat(G.energy[0], '）</h3>\n  <div class="row"><button data-act="build" data-n="1" ').concat(maxB < 1 ? "disabled" : "", '>造 1 艘</button><button data-act="build" data-n="5" ').concat(maxB < 5 ? "disabled" : "", '>造 5 艘</button><button data-act="build" data-n="').concat(maxB, '" ').concat(maxB < 1 ? "disabled" : "", ">全造（").concat(maxB, '）</button></div>\n  <p class="hint">').concat(a > 0 ? "再点一颗虚线圈住的相邻星球，就能出兵或调动。" : "这里没有可派的舰了。", "</p>");
-    return "<h2>".concat(p.name, '</h2><p class="sub">你的星球').concat(p.home ? "（母星）" : "", "</p>").concat(threatNote(p.id), "\n  ").concat(facts([["舰队", "".concat(p.ships).concat(c ? "（已派出 ".concat(c, "）") : "")], ["产能", "+".concat(pyield(p), " / 回合").concat(p.rest ? "（减负前 +".concat(p.yield, "）") : "")], ["防御", "+".concat(pct(defOf(p)))]].concat(has("loy") ? [["民心", "".concat(loyOf(p), "（").concat(loyOf(p) >= 70 ? "人民愿意为你而战" : loyOf(p) <= 20 ? "随时可能起义" : "一般", "）")], ["风骨", ptype(p).name]] : []).concat([["相邻敌舰", enemyAdj(p.id, 0)]])), "\n  ").concat(BUILD, "\n  ").concat(has("loy") ? '<p class="hint">'.concat(ptype(p).desc, '</p>\n  <h3>劳作强度</h3><div class="row"><button data-act="work" data-i="').concat(p.id, '" data-v="0" class="').concat(p.rest ? "" : "on", '">全力（产出 100%）</button><button data-act="work" data-i="').concat(p.id, '" data-v="1" class="').concat(p.rest ? "on" : "", '">减负（产出 ').concat(CH ? 70 : 65, '%）</button></div>\n  <p class="hint">全力：产出最多，但每回合民心 -1，太平时停在 25，打仗时继续往下掉；民心掉到 10 以下可能起义。减负：少征兵、少收能源，每回合民心 +').concat(CH ? 4 : 3, "；民心高的星球更难被打下，被占了人民还会组织抵抗军把它夺回来。</p>") : "", '\n  <button class="ghost" data-act="desel">取消选中</button>');
+    return "<h2>".concat(p.name, '</h2><p class="sub">你的星球').concat(p.home ? "（母星）" : "", "</p>").concat(threatNote(p.id), "\n  ").concat(facts([["舰队", "".concat(p.ships).concat(c ? "（已派出 ".concat(c, "）") : "")], ["产能", "+".concat(pyield(p), " / 回合").concat(p.rest ? "（减负前 +".concat(p.yield, "）") : "")], ["防御", "+".concat(pct(defOf(p)))]].concat(has("loy") ? [["民心", "".concat(loyOf(p), "（").concat(loyOf(p) >= 70 ? "人民愿意为你而战" : loyOf(p) <= 20 ? "随时可能起义" : "一般", "）")], ["风骨", ptype(p).name]] : []).concat([["相邻敌舰", enemyAdj(p.id, 0)]])), "\n  ").concat(BUILD, "\n  ").concat(has("loy") ? '<p class="hint">'.concat(ptype(p).desc, '</p>\n  <h3>劳作强度</h3><div class="row"><button data-act="work" data-i="').concat(p.id, '" data-v="0" class="').concat(p.rest ? "" : "on", '">全力（产出 100%）</button><button data-act="work" data-i="').concat(p.id, '" data-v="1" class="').concat(p.rest ? "on" : "", '">减负（产出 ').concat(CH ? 70 : 65, '%）</button></div>\n  <p class="hint">全力：产出最多，但每回合民心 -1，太平时停在 25，打仗时继续往下掉；').concat(CH ? "" : "跌破 20 会有人抢船当海盗，", "民心掉到 10 以下可能起义。减负：少征兵、少收能源，每回合民心 +").concat(CH ? 4 : 3, "；民心高的星球更难被打下，被占了人民还会组织抵抗军把它夺回来。</p>") : "", '\n  <button class="ghost" data-act="desel">取消选中</button>');
   }
   function panelOther(p) {
     const who = p.owner === null ? "中立星球" : "".concat(FACTIONS[p.owner].name, "的星球（").concat(atWar(0, p.owner) ? "交战中" : allied(0, p.owner) ? "同盟" : "和平", "，对你").concat(attLabel(G.rel[p.owner]), "）");
@@ -3247,6 +3335,13 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
     } catch (e) {
     }
   }
+  function askResume(act, i) {
+    const d = readSave();
+    if (!d) return false;
+    const l = saveLabel(d);
+    openCard('<p class="eyebrow">还有一局没打完</p><h2>'.concat(l.mode, '</h2><p class="sub">').concat(l.turn, " · ").concat(l.mine, " 颗星 · ").concat(l.when, '</p><p>开新局会覆盖这一局的存档。</p><div class="row"><button class="primary" data-act="resume">接着玩这一局</button><button data-act="').concat(act, '" data-force="1"').concat(i !== void 0 ? ' data-i="'.concat(i, '"') : "", ">放弃它，开新局</button></div>"));
+    return true;
+  }
   function saveLabel(d) {
     const g = d.G, mine = g.planets.filter((p) => p.owner === 0).length, dt = new Date(d.time);
     const mode = d.chi >= 0 ? CHAPTERS[d.chi].name : "正式星域 · ".concat(DIFF[d.cfg.diff].name);
@@ -3521,6 +3616,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
         break;
       }
       case "start":
+        if (!b.dataset.force && askResume("start")) break;
         CH = null;
         CHI = -1;
         newGame();
@@ -3549,11 +3645,13 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
       case "menu":
         saveGame();
         showMenu();
+        if (readSave()) toast("已存档。点「继续」就能接着玩。");
         break;
       case "resume":
         resumeGame();
         break;
       case "chapter":
+        if (!b.dataset.force && askResume("chapter", b.dataset.i)) break;
         startChapter(+b.dataset.i);
         break;
       case "coach":
