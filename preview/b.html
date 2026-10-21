@@ -307,6 +307,14 @@ html.nogap .chapters>*{margin-bottom:10px}
 .h1 em{font-style:italic;color:var(--p1);font-family:Georgia,"Times New Roman",serif;font-weight:700;padding:0 .04em}
 .lede{font-size:17px;font-size:clamp(16px,2.3vw,19px);line-height:1.7;color:#4A5967;max-width:36em;margin:0 0 8px}
 .minimap{display:block;width:100%;height:auto;margin:14px 0 6px}
+.report{display:block;width:100%;height:auto;border-radius:14px;margin:6px 0 10px;box-shadow:0 2px 10px rgba(38,64,84,.15)}
+.ahe circle{fill:#FBF8F1;stroke:#24313F;stroke-width:2}.ahe text{font-size:12px;font-weight:800;fill:#24313F;text-anchor:middle;dominant-baseline:central;font-family:-apple-system,"PingFang SC",sans-serif}
+.ahecard{background:#FBF8F1;border-radius:14px;padding:12px 14px;margin:10px 0;line-height:1.7}
+.mmcap{min-height:3.2em;margin:0 0 10px;text-align:center;color:var(--muted);font-size:15px;line-height:1.6}
+.mmcap b{color:#E8505B;font-variant-numeric:tabular-nums}
+.mmcap .last{display:block;color:var(--ink);font-weight:700;opacity:0;transition:opacity .8s}
+.mmcap .last.on{opacity:1}
+.mm-boom{fill:none;stroke:#E8505B;stroke-width:3;animation:flash .9s ease-out forwards}
 .mm-road path{fill:none;stroke:#C4D6DD;stroke-width:22;stroke-linecap:round;stroke-linejoin:round}
 .mm-top path{fill:none;stroke:#FBF8F1;stroke-width:15;stroke-linecap:round;stroke-linejoin:round}
 .mm-sh{fill:rgba(38,64,84,.18)}
@@ -697,6 +705,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
   const pick = (a) => a[rint(a.length)];
   function newGame(seed) {
     newGame0(seed);
+    if (!CH) aheInit();
     G.tipQ = [];
     G.coach = CH && CH.key === "c0" ? 0 : -1;
     if (CH) {
@@ -727,6 +736,117 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
         G.ponzi.collapsed = true;
       }
     }
+  }
+  function aheInit() {
+    const mine = G.planets.find((p) => p.owner === 0 && p.home);
+    let pid = mine ? mine.id : 0, side = 0;
+    if (rnd() < 0.12) {
+      const hs = G.planets.filter((p) => p.home && p.owner >= 1 && p.owner <= 4);
+      if (hs.length) {
+        const h = hs[Math.floor(rnd() * hs.length)];
+        pid = h.id;
+        side = h.owner;
+      }
+    }
+    const len = G.maxTurn === Infinity ? 12 : Math.max(4, Math.round(G.maxTurn / 5));
+    G.ahe = { pid, side, alive: true, job: null, born: side, len, stage: 0, news: "", newsTurn: 0, deathTurn: 0, cause: "", fled: 0, warT: 0, lastSay: 0 };
+    aheSay(side === 0 ? "我叫阿禾，住在".concat(P(pid).name, "。妈妈说，天上那些亮点，每一颗上面都有人。") : "我叫阿禾，住在".concat(P(pid).name, "。这里是").concat(FACTIONS[side].name, "的地方。大人们说，蓝色的舰队是坏人。"), 1);
+  }
+  const aheAge = () => Math.round(6 + (G.turn - 1) * 6 / G.ahe.len);
+  function aheSay(t, turn) {
+    G.ahe.news = t;
+    G.ahe.newsTurn = turn || G.turn;
+    G.ahe.lastSay = G.ahe.newsTurn;
+  }
+  const fleetOf = (f) => G.planets.reduce((s, q) => s + (q.owner === f ? q.ships : 0), 0);
+  function aheBefore() {
+    if (!G.ahe || G.sim) return null;
+    return { owner: P(G.ahe.pid).owner, mine: G.toll.mine, theirs: G.toll.theirs, ships: fleetOf(G.ahe.side), civ: G.toll.all };
+  }
+  function aheTurn(rep, b) {
+    const A = G.ahe;
+    if (!A || !A.alive || !b || G.sim) return;
+    const t = G.turn, p = P(A.pid), side = A.side, said = () => A.newsTurn === t;
+    if (AI.some((f) => atWar(side, f))) A.warT++;
+    if (A.job === "soldier") {
+      const lostShips = side === 0 ? (G.toll.mine - b.mine) / 1e3 : 0, theirLost = side !== 0 ? (G.toll.theirs - b.theirs) / 1e3 : 0;
+      const q = Math.min(0.3, 0.6 * (lostShips + theirLost) / Math.max(4, b.ships));
+      if (q > 0 && rnd() < q) {
+        A.alive = false;
+        A.deathTurn = t;
+        A.cause = side === 0 ? "war" : "you";
+        aheSay(side === 0 ? "阿禾所在的那艘舰没有回来。那年他 ".concat(aheAge(), " 岁。") : "你的舰队打赢了这一仗。阵亡名单上，有一个叫阿禾的年轻人，".concat(aheAge(), " 岁。"));
+        rep.unshift('<span class="warn">'.concat(A.news, "</span>"));
+        return;
+      }
+    }
+    if (p.owner !== b.owner) {
+      const safe = G.adj[p.id].map(P).filter((q) => q.owner === b.owner);
+      const civDead = G.toll.all - b.civ > 0;
+      if (civDead && rnd() < 0.18) {
+        A.alive = false;
+        A.deathTurn = t;
+        A.cause = p.owner === 0 ? "you" : "war";
+        aheSay(p.owner === 0 ? "你的舰队拿下了".concat(p.name, "。废墟里，有一个叫阿禾的孩子没能跑出来。") : "".concat(p.name, "陷落那天，阿禾没能跑出来。那年他 ").concat(aheAge(), " 岁。"));
+        rep.unshift('<span class="warn">'.concat(A.news, "</span>"));
+        return;
+      }
+      if (p.owner === 0 && side !== 0) {
+        A.side = 0;
+        aheSay(A.born === 0 ? "".concat(p.name, "回来了。阿禾站在路边，看着蓝色的旗子重新升起来。") : "蓝色的舰队进城了。原来他们不吃人。我叫阿禾，从今天起，我也是你的人。");
+      } else if (b.owner === A.side && safe.length && rnd() < 0.65) {
+        const q = safe[Math.floor(rnd() * safe.length)];
+        A.pid = q.id;
+        A.fled++;
+        aheSay("".concat(p.name, "丢了。阿禾跟着逃难的人走了三天三夜，到了").concat(q.name, "。"));
+      } else if (p.owner !== null) {
+        A.side = p.owner;
+        aheSay("".concat(p.name, "换了旗子。阿禾还住在原来的屋子里，只是门口站着别人的兵。"));
+      } else {
+        aheSay("".concat(p.name, "起义了，没人管了。阿禾说，街上第一次没有兵。"));
+      }
+    }
+    const stage = Math.min(4, Math.floor((t - 1) / A.len));
+    if (stage > A.stage) {
+      A.stage = stage;
+      if (stage === 2 && !A.job) {
+        const P0 = P(A.pid), loy = loyOf(P0), warry = A.warT >= t * 0.6;
+        if (A.side !== 0) {
+          const ty = FACTIONS[A.side] && FACTIONS[A.side].type;
+          A.job = ty === "aggro" || ty === "vulture" || warry ? "soldier" : "farmer";
+          aheSay(A.job === "soldier" ? "阿禾 ".concat(aheAge(), " 岁，被").concat(FACTIONS[A.side].name, "征了兵。他的舰，迟早会开到你的边境上。") : "阿禾 ".concat(aheAge(), " 岁，在").concat(P0.name, "种地。他说，打仗的事，离他很远。"));
+        } else if (G.rep[0] >= 65 && !(warry && !P0.rest)) {
+          A.job = "diplo";
+          G.rep[0] = Math.min(100, G.rep[0] + 3);
+          aheSay("阿禾 ".concat(aheAge(), " 岁，当上了外交官。他说，想让别的星球的孩子也不用躲防空洞。（你去调停时，成功率更高）"));
+        } else if (P0.rest && loy >= 60) {
+          A.job = "engineer";
+          P0.yield += 1;
+          aheSay("阿禾 ".concat(aheAge(), " 岁，成了工程师，给").concat(P0.name, "修好了第一座聚变炉。（").concat(P0.name, "产能 +1）"));
+        } else if (warry || !P0.rest && loy < 40) {
+          A.job = "soldier";
+          aheSay("阿禾 ".concat(aheAge(), " 岁，报名参军了。家里没别的出路——仗一直没停。现在，你舰队里有他。"));
+        } else {
+          A.job = "farmer";
+          P0.loy = Math.min(100, loyOf(P0) + 5);
+          aheSay("阿禾 ".concat(aheAge(), " 岁，回家种地了。日子不富，但他说，能睡个整觉就好。"));
+        }
+      } else if (stage === 1 && !said()) aheSay(A.side === 0 ? AI.some((f) => atWar(0, f)) ? "阿禾 ".concat(aheAge(), " 岁了。他问：为什么邻居家的哥哥去了前线，就再没写过信？") : "阿禾 ".concat(aheAge(), " 岁了，上学了。他说长大想造会飞的东西。") : "阿禾 ".concat(aheAge(), " 岁了。他在").concat(FACTIONS[A.side].name, "的学校里，学会了画蓝色的敌人。"));
+      else if (stage === 3 && !said()) aheSay(A.job === "soldier" ? "阿禾 ".concat(aheAge(), " 岁，还活着。他说他不想再数自己打沉过几艘舰了。") : A.side === 0 && loyOf(P(A.pid)) >= 60 ? "阿禾 ".concat(aheAge(), " 岁，有了自己的孩子。他给孩子起名叫「平」。") : "阿禾 ".concat(aheAge(), " 岁。日子紧巴巴的，他说，总比打仗强。"));
+    }
+    if (!said() && t - A.lastSay >= 7 && A.side === 0) {
+      const q = P(A.pid), loy = loyOf(q);
+      aheSay(AI.some((f) => atWar(0, f)) && G.adj[q.id].some((j) => P(j).owner !== 0 && P(j).owner !== null && atWar(0, P(j).owner)) ? "".concat(q.name, "能看到前线的火光。阿禾说，晚上睡觉不敢关灯。") : loy >= 70 ? "".concat(q.name, "今年收成不错。阿禾说，街上的人开始笑了。") : loy <= 30 ? "".concat(q.name, "的人已经很久没吃饱了。阿禾说，大家看你的眼神变了。") : "".concat(q.name, "平平常常地过了一年。阿禾说，平常就挺好。"));
+    }
+  }
+  function aheLife() {
+    const A = G.ahe;
+    if (!A) return "";
+    const J = { soldier: "当兵", diplo: "当外交官", engineer: "当工程师", farmer: "种地" }[A.job] || "";
+    const age = A.alive ? aheAge() : Math.round(6 + (A.deathTurn - 1) * 6 / A.len);
+    if (!A.alive) return A.cause === "you" ? "死在你的炮火下，".concat(age, " 岁。").concat(A.born !== 0 ? "他出生在对面，从来没见过你。" : "") : "".concat(J ? "".concat(J, "的第 ").concat(Math.max(1, age - 17), " 年，") : "", "死在战争里，").concat(age, " 岁。");
+    if (!J) return "".concat(age, " 岁，还是个孩子。这一局结束时，他还活着。");
+    return "".concat(J, "，活到了这一局结束，").concat(age, " 岁").concat(A.fled ? "，逃过 ".concat(A.fled, " 次难") : "").concat(A.side !== 0 ? "，最后住在".concat(FACTIONS[A.side].name, "的地盘上") : "", "。");
   }
   function newGame0(seed) {
     if (seed === void 0) seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
@@ -949,7 +1069,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
     if (G.energy[0] < 15 || G.dipUsed["m" + pairKey(a, b)]) return;
     G.energy[0] -= 15;
     G.dipUsed["m" + pairKey(a, b)] = true;
-    const p = Math.max(0.1, Math.min(0.9, G.rep[0] / 100 * 0.6 + (G.rel[a] + G.rel[b]) / 400 + (G.hegemon === a || G.hegemon === b ? -0.3 : 0)));
+    const p = Math.max(0.1, Math.min(0.9, (G.ahe && G.ahe.alive && G.ahe.job === "diplo" && G.ahe.side === 0 ? 0.1 : 0) + G.rep[0] / 100 * 0.6 + (G.rel[a] + G.rel[b]) / 400 + (G.hegemon === a || G.hegemon === b ? -0.3 : 0)));
     if (rnd() < p) {
       setWar(a, b, false);
       G.aiTruce[pairKey(a, b)] = G.turn + 8;
@@ -1852,6 +1972,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
   function endTurn() {
     if (G.over) return;
     const t = G.turn;
+    const aheB = aheBefore();
     const targeted = new Set(G.orders.map((o) => o.to));
     G.planets.forEach((q) => {
       if (q.owner !== null || q.yield < 5 || targeted.has(q.id)) return;
@@ -2032,6 +2153,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
     if (G.exile) payWage();
     for (let f = 0; f < 5; f++) G.energy[f] += f === G.ponzi.f && !G.ponzi.collapsed ? Math.round(realIncome(f) * 0.7) : realIncome(f);
     settleLoans();
+    aheTurn(rep, aheB);
     G.turn++;
     G.orders = [];
     G.sel = null;
@@ -2378,7 +2500,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
     if (CH) return chapterEnd();
     const r = analyze(), top = r.findings[0];
     const others = [1, 2, 3, 4].map((f) => "".concat(FACTIONS[f].name, " ").concat(r.counts[f], " 个")).join("，");
-    let h = endingCard() + '<h2>复盘</h2><p class="sub">'.concat(DIFF[CFG.diff].name, "难度，").concat(G.maxTurn === Infinity ? "无尽模式（打了 ".concat(G.hist.length, " 回合）") : G.maxTurn + " 回合", "，混乱事件").concat(CFG.chaos ? "开" : "关", "</p><p>").concat(r.counts[0] === 0 ? "你在第 ".concat(G.hist.length, " 回合失去了全部星球。") : "你排第 ".concat(r.rank, " 名，最后守住 ").concat(r.counts[0], " 个星球。")).concat(others, "。</p>");
+    let h = endingCard() + (G.ahe ? '<div class="ahecard"><b>阿禾</b>　'.concat(aheLife(), "</div>") : "") + '<h2>复盘</h2><p class="sub">'.concat(DIFF[CFG.diff].name, "难度，").concat(G.maxTurn === Infinity ? "无尽模式（打了 ".concat(G.hist.length, " 回合）") : G.maxTurn + " 回合", "，混乱事件").concat(CFG.chaos ? "开" : "关", "</p><p>").concat(r.counts[0] === 0 ? "你在第 ".concat(G.hist.length, " 回合失去了全部星球。") : "你排第 ".concat(r.rank, " 名，最后守住 ").concat(r.counts[0], " 个星球。")).concat(others, "。</p>");
     const at = (n) => n <= r.pa.counts.length && n <= G.hist.length ? "第 ".concat(n, " 回合：你 ").concat(G.hist[n - 1].counts[0], " 个，平行宇宙 ").concat(r.pa.counts[n - 1], " 个") : null;
     const marks = [10, 20, 40].filter((n) => n < G.hist.length).map(at).filter(Boolean);
     h += '<div class="core">你这局的打法：<b>'.concat(r.st.name, "</b><br>").concat(r.st.text, "</div>");
@@ -2416,6 +2538,59 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
   }
   const CONST = '<svg class="const" viewBox="0 0 220 60" aria-hidden="true"><path d="M10 44 L58 18 L104 34 L150 10 L210 28" /><circle cx="10" cy="44" r="3"/><circle cx="58" cy="18" r="4"/><circle cx="104" cy="34" r="3"/><circle cx="150" cy="10" r="5"/><circle cx="210" cy="28" r="3"/></svg>';
   const MINIMAP = '<svg class="minimap" viewBox="0 0 600 260" aria-hidden="true">\n <g class="mm-road"><path d="M60 200 L200 120 L330 170 L470 70 L560 120"/><path d="M200 120 L230 40"/><path d="M330 170 L360 240"/><path d="M470 70 L520 210"/></g>\n <g class="mm-top"><path d="M60 200 L200 120 L330 170 L470 70 L560 120"/><path d="M200 120 L230 40"/><path d="M330 170 L360 240"/><path d="M470 70 L520 210"/></g>\n <circle class="mm-ship s0" r="7"><animateMotion dur="7s" repeatCount="indefinite" path="M60 200 L200 120 L330 170 L470 70"/></circle>\n <circle class="mm-ship s1" r="6"><animateMotion dur="9s" repeatCount="indefinite" path="M560 120 L470 70 L330 170 L200 120"/></circle>\n '.concat([[60, 200, 26, "p0", "10"], [200, 120, 20, "pn", "6"], [230, 40, 16, "pn", "4"], [330, 170, 22, "p4", "8"], [360, 240, 14, "pn", "3"], [470, 70, 24, "p1", "12"], [560, 120, 18, "p2", "7"], [520, 210, 17, "p3", "5"]].map(([x, y, r, c, n]) => '<g transform="translate('.concat(x, ",").concat(y, ')"><circle class="mm-sh" cx="4" cy="6" r="').concat(r, '"/><circle class="mm-').concat(c, '" r="').concat(r, '"/><text class="mm-n').concat(c === "pn" ? " dark" : "", '">').concat(n, "</text></g>")).join(""), "\n</svg>");
+  let heroPlayed = false;
+  function heroBattle() {
+    const svg = document.querySelector("#home .minimap"), cap = document.getElementById("mmcap");
+    if (!svg || !cap) return;
+    const last = '<span class="last on">你可以不让它发生。</span>';
+    if (heroPlayed || window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      cap.innerHTML = "上一场仗，<b>8,000</b> 人没能回家。" + last;
+      return;
+    }
+    heroPlayed = true;
+    const ns = "http://www.w3.org/2000/svg", tg = [...svg.querySelectorAll("g[transform]")].find((g) => g.getAttribute("transform") === "translate(330,170)");
+    if (!tg) return;
+    const body = tg.querySelector(".mm-p4"), num = tg.querySelector("text");
+    const f = document.createElementNS(ns, "circle");
+    f.setAttribute("r", "11");
+    f.setAttribute("class", "mm-ship s1");
+    svg.appendChild(f);
+    const A = { x: 470, y: 70 }, B = { x: 330, y: 170 }, t0 = performance.now() + 700, D2 = 1300;
+    cap.innerHTML = "&nbsp;";
+    const fmt2 = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const move = (t) => {
+      const k = Math.max(0, Math.min(1, (t - t0) / D2)), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      f.setAttribute("cx", A.x + (B.x - A.x) * e);
+      f.setAttribute("cy", A.y + (B.y - A.y) * e);
+      if (k < 1) return requestAnimationFrame(move);
+      f.remove();
+      const r = document.createElementNS(ns, "circle");
+      r.setAttribute("cx", B.x);
+      r.setAttribute("cy", B.y);
+      r.setAttribute("r", "30");
+      r.setAttribute("class", "mm-boom");
+      svg.appendChild(r);
+      setTimeout(() => r.remove(), 950);
+      if (body) body.setAttribute("class", "mm-p1");
+      if (num) num.textContent = "3";
+      const c0 = performance.now(), CD = 1400, N = 8e3;
+      const count2 = (t2) => {
+        const q = Math.min(1, (t2 - c0) / CD), v = Math.round(N * (1 - Math.pow(1 - q, 3)));
+        cap.innerHTML = "这一仗，<b>".concat(fmt2(v), '</b> 人没能回家。<span class="last"></span>');
+        if (q < 1) return requestAnimationFrame(count2);
+        setTimeout(() => {
+          const l = cap.querySelector(".last");
+          if (l) {
+            l.textContent = "你可以不让它发生。";
+            void l.offsetWidth;
+            l.classList.add("on");
+          }
+        }, 500);
+      };
+      requestAnimationFrame(count2);
+    };
+    requestAnimationFrame(move);
+  }
   function showMenu() {
     if (CFGsave) {
       Object.assign(CFG, CFGsave);
@@ -2430,9 +2605,10 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
       return "".concat(d.getMonth() + 1, "月").concat(d.getDate(), "日 ").concat(pad(d.getHours()), ":").concat(pad(d.getMinutes()));
     };
     const el = document.getElementById("home");
-    el.innerHTML = '<div class="hw">\n  <nav class="hnav"><b>星球棋</b><span><button class="sm ghost" data-act="hap" style="margin-right:8px">'.concat(HAP.on ? "震动：开" : "震动：关", '</button>不用注册 · 存档只在你的设备上</span></nav>\n  <section class="hero2">\n    <h1 class="h1">每一艘战舰上，<br>有 <em>1000</em> 个人。</h1>\n    <p class="lede">《星球棋》是一个关于战争与和平的策略小游戏。五股势力，一片星海。你可以统一它——也可以让每颗星球上的人，都过上好日子。</p>\n    ').concat(MINIMAP, '\n    <div class="cta">\n      ').concat(sl ? '<button class="resume" data-act="resume"><span class="rl">继续</span><span class="rm"><b>'.concat(sl.mode, "</b><small>").concat(sl.turn, " · ").concat(sl.mine, " 颗星 · ").concat(sl.when, '</small></span><span class="ra">›</span></button>') : "", '\n      <button class="primary big" data-act="chapter" data-i="').concat(next < 0 ? 0 : next, '">').concat(next <= 0 ? "开始：第一颗星" : next < 0 ? "从序章再玩一次" : "继续学：" + CHAPTERS[next].name.split(" · ")[1], '</button>\n      <button class="big" data-act="jump" data-to="full">直接玩完整版</button>\n    </div>\n    <p class="counters"><span><b>').concat(hist.length, "</b>局</span><span><b>").concat(ends.length, "</b>/7 种结局</span><span><b>").concat(ppl(killed), "</b>人死在你的炮火下</span><span><b>").concat(ppl(lost), '</b>名你的人没能回家</span></p>\n  </section>\n  <section class="hsec"><h2>一章，只学一样东西</h2><p class="hsub">每章十几回合。没学到的功能，画面上不会出现。</p>\n  <div class="chapters">').concat(CHAPTERS.map((c, i) => '<button class="chap'.concat(i === next ? " next" : "", '" data-act="chapter" data-i="').concat(i, '"><span class="no">').concat(["序", "一", "二", "三"][i], '</span><span class="ct"><b>').concat(c.name.split(" · ")[1], "</b><small>").concat(c.line, '</small></span><span class="st">').concat(done.indexOf(c.key) >= 0 ? "✓ 通过" : i === next ? "下一章" : "", "</span></button>")).join(""), '</div></section>\n  <section class="hsec" id="full"><h2>完整的星域</h2><p class="hsub">外交、民心、金融、种族、混乱事件，全部打开。打出你自己的结局。</p>\n  <div class="setrow"><span>回合</span><div class="row">').concat(opt("turns", 40, "40")).concat(opt("turns", 60, "60")).concat(opt("turns", 100, "100")).concat(opt("turns", 0, "无尽"), '</div></div>\n  <div class="setrow"><span>难度</span><div class="row">').concat(opt("diff", "normal", "普通")).concat(opt("diff", "hard", "困难")).concat(opt("diff", "hell", "地狱"), '</div></div>\n  <div class="setrow"><span>种族</span><div class="row">').concat(Object.keys(MYRACE).map((k) => opt("race", k, MYRACE[k].name)).join(""), '</div></div>\n  <p class="hsub small">').concat(MYRACE[CFG.race].name, "——长处：").concat(MYRACE[CFG.race].plus, "；短处：").concat(MYRACE[CFG.race].minus, '。</p>\n  <div class="setrow"><span>混乱事件</span><div class="row">').concat(opt("chaos", true, "开")).concat(opt("chaos", false, "关"), '</div></div>\n  <button class="primary big wide" data-act="start">开始</button></section>\n  <section class="hsec"><h2>结局图鉴</h2><p class="hsub">在完整版里打出过的结局会亮起来。</p>\n  <div class="ends">').concat(ENDS.map(([k, n, d]) => ends.indexOf(k) >= 0 ? '<div class="end on e-'.concat(k, '"><b>').concat(n, "</b><small>").concat(d, "</small></div>") : '<div class="end"><b>？？？</b><small>还没打出来</small></div>').join(""), '</div></section>\n  <section class="hsec"><h2>我的星史</h2>').concat(hist.length ? '<ul class="hist">'.concat(hist.slice(0, 12).map((x) => '<li><span class="hd">'.concat(fd(x.t), '</span><span class="hm"><b>').concat(x.ch ? x.win ? "通过" : "未通过" : endName(x.end), "</b><small>").concat(x.mode, " · ").concat(x.turns, " 回合 · 我方阵亡 ").concat(ppl(x.dm || 0), " · 对方阵亡 ").concat(ppl(x.dt || 0), "</small></span></li>")).join(""), "</ul>") : '<p class="hsub">还没有打完过一局。打完的每一局都会记在这里，只存在你的设备上。</p>', '</section>\n  <section class="hsec"><h2>放到主屏幕</h2><p class="hsub">像 App 一样一点就开，断网也能玩。<br>iPhone / iPad：在 Safari 里点「分享」按钮，再点「添加到主屏幕」。<br>安卓：在浏览器菜单里找「添加到主屏幕」或「添加到桌面」。</p></section>\n  <footer class="hfoot">星球棋 v16 · 用 Claude 做的 · 不联网、不注册、不收集任何数据</footer>\n  </div>');
+    el.innerHTML = '<div class="hw">\n  <nav class="hnav"><b>星球棋</b><span><button class="sm ghost" data-act="hap" style="margin-right:8px">'.concat(HAP.on ? "震动：开" : "震动：关", '</button>不用注册 · 存档只在你的设备上</span></nav>\n  <section class="hero2">\n    <h1 class="h1">每一艘战舰上，<br>有 <em>1000</em> 个人。</h1>\n    <p class="lede">《星球棋》是一个关于战争与和平的策略小游戏。五股势力，一片星海。你可以统一它——也可以让每颗星球上的人，都过上好日子。</p>\n    ').concat(MINIMAP, '<p class="mmcap" id="mmcap" aria-live="polite"></p>\n    <div class="cta">\n      ').concat(sl ? '<button class="resume" data-act="resume"><span class="rl">继续</span><span class="rm"><b>'.concat(sl.mode, "</b><small>").concat(sl.turn, " · ").concat(sl.mine, " 颗星 · ").concat(sl.when, '</small></span><span class="ra">›</span></button>') : "", '\n      <button class="primary big" data-act="chapter" data-i="').concat(next < 0 ? 0 : next, '">').concat(next <= 0 ? "开始：第一颗星" : next < 0 ? "从序章再玩一次" : "继续学：" + CHAPTERS[next].name.split(" · ")[1], '</button>\n      <button class="big" data-act="jump" data-to="full">直接玩完整版</button>\n    </div>\n    <p class="counters"><span><b>').concat(hist.length, "</b>局</span><span><b>").concat(ends.length, "</b>/7 种结局</span><span><b>").concat(ppl(killed), "</b>人死在你的炮火下</span><span><b>").concat(ppl(lost), '</b>名你的人没能回家</span></p>\n  </section>\n  <section class="hsec"><h2>一章，只学一样东西</h2><p class="hsub">每章十几回合。没学到的功能，画面上不会出现。</p>\n  <div class="chapters">').concat(CHAPTERS.map((c, i) => '<button class="chap'.concat(i === next ? " next" : "", '" data-act="chapter" data-i="').concat(i, '"><span class="no">').concat(["序", "一", "二", "三"][i], '</span><span class="ct"><b>').concat(c.name.split(" · ")[1], "</b><small>").concat(c.line, '</small></span><span class="st">').concat(done.indexOf(c.key) >= 0 ? "✓ 通过" : i === next ? "下一章" : "", "</span></button>")).join(""), '</div></section>\n  <section class="hsec" id="full"><h2>完整的星域</h2><p class="hsub">外交、民心、金融、种族、混乱事件，全部打开。打出你自己的结局。</p>\n  <div class="setrow"><span>回合</span><div class="row">').concat(opt("turns", 40, "40")).concat(opt("turns", 60, "60")).concat(opt("turns", 100, "100")).concat(opt("turns", 0, "无尽"), '</div></div>\n  <div class="setrow"><span>难度</span><div class="row">').concat(opt("diff", "normal", "普通")).concat(opt("diff", "hard", "困难")).concat(opt("diff", "hell", "地狱"), '</div></div>\n  <div class="setrow"><span>种族</span><div class="row">').concat(Object.keys(MYRACE).map((k) => opt("race", k, MYRACE[k].name)).join(""), '</div></div>\n  <p class="hsub small">').concat(MYRACE[CFG.race].name, "——长处：").concat(MYRACE[CFG.race].plus, "；短处：").concat(MYRACE[CFG.race].minus, '。</p>\n  <div class="setrow"><span>混乱事件</span><div class="row">').concat(opt("chaos", true, "开")).concat(opt("chaos", false, "关"), '</div></div>\n  <button class="primary big wide" data-act="start">开始</button></section>\n  <section class="hsec"><h2>结局图鉴</h2><p class="hsub">在完整版里打出过的结局会亮起来。</p>\n  <div class="ends">').concat(ENDS.map(([k, n, d]) => ends.indexOf(k) >= 0 ? '<div class="end on e-'.concat(k, '"><b>').concat(n, "</b><small>").concat(d, "</small></div>") : '<div class="end"><b>？？？</b><small>还没打出来</small></div>').join(""), '</div></section>\n  <section class="hsec"><h2>我的星史</h2>').concat(hist.length ? '<ul class="hist">'.concat(hist.slice(0, 12).map((x) => '<li><span class="hd">'.concat(fd(x.t), '</span><span class="hm"><b>').concat(x.ch ? x.win ? "通过" : "未通过" : endName(x.end), "</b><small>").concat(x.mode, " · ").concat(x.turns, " 回合 · 我方阵亡 ").concat(ppl(x.dm || 0), " · 对方阵亡 ").concat(ppl(x.dt || 0), "</small></span></li>")).join(""), "</ul>") : '<p class="hsub">还没有打完过一局。打完的每一局都会记在这里，只存在你的设备上。</p>', '</section>\n  <section class="hsec"><h2>放到主屏幕</h2><p class="hsub">像 App 一样一点就开，断网也能玩。<br>iPhone / iPad：在 Safari 里点「分享」按钮，再点「添加到主屏幕」。<br>安卓：在浏览器菜单里找「添加到主屏幕」或「添加到桌面」。</p></section>\n  <footer class="hfoot">星球棋 v16 · 用 Claude 做的 · 不联网、不注册、不收集任何数据</footer>\n  </div>');
     el.classList.add("show");
     el.scrollTop = 0;
+    heroBattle();
   }
   function jumpTo(id) {
     const t = document.getElementById(id), hm = document.getElementById("home");
@@ -2533,6 +2709,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
       }
       if (sel === p.id || G.target === p.id) s += '<circle class="selring" r="'.concat(r + 7, '"/>');
       s += '<circle class="pshadow" cx="4" cy="7" r="'.concat(r, '"/><circle class="').concat(cls, '" r="').concat(r, '"/>');
+      if (G.ahe && G.ahe.alive && G.ahe.pid === p.id) s += '<g class="ahe" transform="translate('.concat(Math.round(r * 0.78), ",").concat(Math.round(r * 0.78), ')"><circle r="11"/><text>禾</text></g>');
       s += '<text class="pships" fill="'.concat(p.owner === null ? "var(--ink)" : "var(--on-faction)", '">').concat(shown(p.id), "</text>");
       s += '<text class="pname" y="'.concat(-r - 14, '">').concat(p.name).concat(p.home ? "★" : "", "</text>");
       s += '<text class="pyield" y="'.concat(r + 24, '">+').concat(p.owner === 0 ? pyield(p) : p.yield, "</text>");
@@ -2864,7 +3041,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
     if (!G || G.recorded || G.sim) return;
     G.recorded = true;
     const h = store.get("history", []);
-    h.unshift({ t: Date.now(), mode: CH ? CH.name : "正式星域 · ".concat(DIFF[CFG.diff].name), ch: !!CH, win: CH ? ["chwin", "conquer", "leader"].indexOf(G.ending) >= 0 : null, end: G.ending || "time", turns: G.hist.length, mine: G.planets.filter((p) => p.owner === 0).length, dm: G.toll.mine, dt: G.toll.theirs, rep: G.rep[0] });
+    h.unshift({ t: Date.now(), mode: CH ? CH.name : "正式星域 · ".concat(DIFF[CFG.diff].name), ch: !!CH, win: CH ? ["chwin", "conquer", "leader"].indexOf(G.ending) >= 0 : null, end: G.ending || "time", turns: G.hist.length, mine: G.planets.filter((p) => p.owner === 0).length, dm: G.toll.mine, dt: G.toll.theirs, rep: G.rep[0], ahe: G.ahe ? aheLife() : "" });
     store.set("history", h.slice(0, 40));
     if (!CH) {
       const e = store.get("ends", []);
@@ -2906,7 +3083,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
       document.body.removeChild(a);
     }
   }
-  function shareGame() {
+  function shareTextOnly() {
     const t = shareText(), u = shareURL();
     if (navigator.share && u) {
       navigator.share({ title: "星球棋", text: t, url: u }).catch(() => {
@@ -2914,6 +3091,117 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
       return;
     }
     copyText(t);
+  }
+  const SITE_QR = { n: 29, len: 841, hex: "1fde8c7f82e2f20dd7f9d76e8938bb75a165d8224820ff5555fc0070e013f51897698f74b6b26f650278f252849f2c1ecbbe7f99c9efd441382cb8ff37a8ccd93cb733b8be79132099f46bbfe00cd08c7f7abd620a15e2575693f9badff10dd3c84de09ca9dbfdde1d8" };
+  function qrBits() {
+    const b = SITE_QR.hex.split("").map((c) => parseInt(c, 16).toString(2).padStart(4, "0")).join("");
+    return b.slice(b.length - SITE_QR.len);
+  }
+  function reportData() {
+    const turns = G.hist.length, dead = G.toll.mine + G.toll.theirs, mine = count(0), win = ["chwin", "conquer", "leader", "utopia"].indexOf(G.ending) >= 0;
+    const title = CH ? CH.name : endName(G.ending);
+    const fmt2 = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const head = dead === 0 ? ["我的手上，", "没有一条人命。"] : G.ending === "utopia" ? ["星海放下了武器。", "代价是 ".concat(fmt2(dead), " 条命。")] : win ? ["我赢了，", "代价是 ".concat(fmt2(dead), " 条命。")] : ["".concat(turns, " 回合，"), "".concat(fmt2(dead), " 人没能回家。")];
+    return { title, turns, head, rows: [["回合", turns], ["我的星球", mine], ["我方阵亡", fmt2(G.toll.mine)], ["对方阵亡", fmt2(G.toll.theirs)], ["整个星域死了", fmt2(G.toll.all)], ["名声", G.rep ? G.rep[0] : "—"]], ahe: G.ahe ? aheLife() : "" };
+  }
+  function drawReport() {
+    const d = reportData(), W = 1080, H = 1440, c = document.createElement("canvas");
+    c.width = W;
+    c.height = H;
+    const x = c.getContext("2d");
+    const F = '-apple-system,"PingFang SC","HarmonyOS Sans SC","Noto Sans SC","Microsoft YaHei",sans-serif';
+    x.fillStyle = "#D7E6EC";
+    x.fillRect(0, 0, W, H);
+    x.fillStyle = "#FFFFFF";
+    x.beginPath();
+    if (x.roundRect) x.roundRect(60, 60, W - 120, H - 120, 48);
+    else x.rect(60, 60, W - 120, H - 120);
+    x.fill();
+    x.fillStyle = "#24313F";
+    x.font = "800 40px ".concat(F);
+    x.fillText("星球棋", 120, 160);
+    x.fillStyle = "#6B7C8C";
+    x.font = "500 34px ".concat(F);
+    x.textAlign = "right";
+    x.fillText(d.title, W - 120, 160);
+    x.textAlign = "left";
+    x.fillStyle = "#24313F";
+    x.font = "800 84px ".concat(F);
+    x.fillText(d.head[0], 120, 320);
+    x.fillStyle = "#E8505B";
+    x.fillText(d.head[1], 120, 430);
+    const gap = d.ahe ? 74 : 86;
+    let y = d.ahe ? 540 : 560;
+    x.font = "500 38px ".concat(F);
+    d.rows.forEach(([k, v], i) => {
+      x.fillStyle = "#6B7C8C";
+      x.fillText(k, 120, y);
+      x.fillStyle = "#24313F";
+      x.font = "800 44px ".concat(F);
+      x.textAlign = "right";
+      x.fillText(String(v), W - 120, y);
+      x.textAlign = "left";
+      x.font = "500 38px ".concat(F);
+      if (i < d.rows.length - 1) {
+        x.fillStyle = "#EEF2F5";
+        x.fillRect(120, y + 28, W - 240, 2);
+      }
+      y += gap;
+    });
+    if (d.ahe) {
+      x.fillStyle = "#FBF8F1";
+      x.fillRect(100, y - 30, W - 200, 128);
+      x.fillStyle = "#24313F";
+      x.font = "600 36px ".concat(F);
+      wrap(x, "阿禾：" + d.ahe, 130, y + 20, W - 260, 50);
+    }
+    x.fillStyle = "#24313F";
+    x.font = "700 40px ".concat(F);
+    x.fillText("每一艘战舰上，有 1000 个人。", 120, H - 250);
+    x.fillStyle = "#6B7C8C";
+    x.font = "500 34px ".concat(F);
+    x.fillText("你能做得比我好吗？扫码就能玩", 120, H - 190);
+    x.fillText("不用注册 · 不用下载", 120, H - 140);
+    const b = qrBits(), n = SITE_QR.n, s = 6, q0x = W - 120 - n * s - 24, q0y = H - 120 - n * s - 60;
+    x.fillStyle = "#FFFFFF";
+    x.fillRect(q0x - 12, q0y - 12, n * s + 24, n * s + 24);
+    x.fillStyle = "#24313F";
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) if (b[i * n + j] === "1") x.fillRect(q0x + j * s, q0y + i * s, s, s);
+    return c;
+    function wrap(x2, t, X, Y, maxW, lh) {
+      let line = "";
+      for (const ch of t) {
+        if (x2.measureText(line + ch).width > maxW) {
+          x2.fillText(line, X, Y);
+          line = ch;
+          Y += lh;
+        } else line += ch;
+      }
+      if (line) x2.fillText(line, X, Y);
+    }
+  }
+  function shareGame() {
+    let url = "";
+    try {
+      url = drawReport().toDataURL("image/png");
+    } catch (e) {
+    }
+    if (!url) {
+      shareTextOnly();
+      return;
+    }
+    const canFile = !!(navigator.canShare && window.File && window.fetch);
+    openCard('<p class="eyebrow">战报</p><img class="report" src="'.concat(url, '" alt="这一局的战报图"><p class="hint">长按图片，可以保存或直接发给朋友。</p><div class="row">').concat(canFile ? '<button class="primary" data-act="shareimg">分享图片</button>' : "", '<button data-act="sharetext">只复制文字</button><button data-act="').concat(G.over && !CH ? "debrief" : "close", '">返回</button></div>'));
+  }
+  function shareImage() {
+    const img = document.querySelector("#card img.report");
+    if (!img) return;
+    fetch(img.src).then((r) => r.blob()).then((b) => {
+      const f = new File([b], "星球棋战报.png", { type: "image/png" });
+      if (navigator.canShare({ files: [f] })) return navigator.share({ files: [f], title: "星球棋", text: shareText() });
+      toast("这个浏览器不支持直接分享图片，长按图片保存吧。");
+    }).catch(() => {
+    });
   }
   const SAVE_KEY = "xingyu.save";
   let memSave = null;
@@ -3066,6 +3354,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
   }
   function buildBrief() {
     const items = [];
+    if (G.ahe && G.ahe.news && G.ahe.newsTurn === G.turn - 1) items.push("阿禾：" + G.ahe.news);
     G.dipNews.filter((n) => n.you && /<b>/.test(n.text)).forEach((n) => items.push(n.text.replace(/<[^>]+>/g, "")));
     const due = G.loans.filter((l) => l.active && l.B === 0 && l.due <= G.turn);
     if (due.length) {
@@ -3250,6 +3539,12 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
         break;
       case "share":
         shareGame();
+        break;
+      case "shareimg":
+        shareImage();
+        break;
+      case "sharetext":
+        shareTextOnly();
         break;
       case "menu":
         saveGame();
@@ -3508,7 +3803,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
   showMenu();
   window.__xingyu = { get G() {
     return G;
-  }, fx: { vignette: () => vignette(), pop: (i) => popPlanet(i), hap: (k) => HAP.go(k) }, saveGame, readSave, resumeGame, clearSave, startChapter, CHAPTERS, has, coachStep, get CH() {
+  }, aheLife: () => aheLife(), fx: { vignette: () => vignette(), pop: (i) => popPlanet(i), hap: (k) => HAP.go(k) }, saveGame, readSave, resumeGame, clearSave, startChapter, CHAPTERS, has, coachStep, get CH() {
     return CH;
   }, mediate, utopiaCheck, hire, buyPlanet, buyable, startExile, RACE, shipCost, dipAct, spy, expose, gift, claim, answer, terms, makeLoan, atWar, allied, alive, count, AI, botTurn, parallel, strategy, CFG, newGame, endTurn, addOrder, analyze, onPlanet, avail, need, nbrs };
 })();
