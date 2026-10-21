@@ -310,6 +310,10 @@ html.nogap .chapters>*{margin-bottom:10px}
 .report{display:block;width:100%;height:auto;border-radius:14px;margin:6px 0 10px;box-shadow:0 2px 10px rgba(38,64,84,.15)}
 .ahe circle{fill:#FBF8F1;stroke:#24313F;stroke-width:2}.ahe text{font-size:12px;font-weight:800;fill:#24313F;text-anchor:middle;dominant-baseline:central;font-family:-apple-system,"PingFang SC",sans-serif}
 .ahecard{background:#FBF8F1;border-radius:14px;padding:12px 14px;margin:10px 0;line-height:1.7}
+.album{background:#fff;border-radius:14px;padding:10px 14px;margin:6px 0 10px}.album summary{cursor:pointer;color:var(--ink);font-size:15px}.album summary b{color:#E8505B}
+.lives{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-top:10px}
+.life{background:#EEF2F5;border-radius:10px;padding:8px 10px;font-size:13px;color:var(--muted);line-height:1.5}.life b{display:block;color:var(--ink)}.life.on{background:#FBF8F1}
+.nearmiss{background:#fff;border-radius:14px;padding:12px 14px;margin:10px 0}.nm{margin:8px 0}.nm .bar{height:6px;border-radius:3px;background:#EEF2F5;margin-top:4px}.nm .bar i{display:block;height:6px;border-radius:3px;background:#E8505B}
 .mmcap{min-height:3.2em;margin:0 0 10px;text-align:center;color:var(--muted);font-size:15px;line-height:1.6}
 .mmcap b{color:#E8505B;font-variant-numeric:tabular-nums}
 .mmcap .last{display:block;color:var(--ink);font-weight:700;opacity:0;transition:opacity .8s}
@@ -884,6 +888,15 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
       const pool = front ? ["".concat(q.name, "能看到前线的火光。阿禾说，晚上睡觉不敢关灯。"), "".concat(q.name, "的防空警报一晚上响了三次。阿禾数着，一直没睡。")] : loy >= 70 ? ["".concat(q.name, "今年收成不错。阿禾说，街上的人开始笑了。"), "".concat(q.name, "开了一家新剧院。阿禾说，好多年没人有心思看戏了。"), "".concat(q.name, "的孩子们开始学别的星球的语言了。")] : loy <= 30 ? ["".concat(q.name, "的人已经很久没吃饱了。阿禾说，大家看你的眼神变了。"), "".concat(q.name, "的街上，越来越多的人在讨论要不要去当海盗。"), "".concat(q.name, "的税又涨了。阿禾家把最后一头牛卖了。")] : ["".concat(q.name, "平平常常地过了一年。阿禾说，平常就挺好。"), "".concat(q.name, "下了一场流星雨。阿禾许了个愿，没告诉别人。")];
       aheSay(A.job && J[A.job] && rnd() < 0.5 ? pick(J[A.job]) : pick(pool));
     }
+  }
+  const AHE_LIVES = [["soldier", "士兵", "仗一直不停的时候，他会被送上前线"], ["diplo", "外交官", "名声足够好，他会想去谈判桌"], ["engineer", "工程师", "人民休养生息，他会去造东西"], ["teacher", "老师", "很久很久没有战争，他会去教书"], ["medic", "战地医生", "仗在打，可他的星球被善待"], ["farmer", "农夫", "不好不坏的年头，他会回家种地"], ["pirate", "海盗", "他的星球活不下去的时候"], ["drifter", "流浪者", "逃过太多次难之后"], ["spy", "探子", "你常常派人去查别人的账"], ["clerk", "账房先生", "他要出生在守财那边"], ["child", "没能长大", "有些孩子，等不到 18 岁"]];
+  const aheKey = () => {
+    const A = G.ahe;
+    return A.job || (!A.alive ? "child" : "kid");
+  };
+  function aheAlbum() {
+    const seen = store.get("aheSeen", []), n = AHE_LIVES.filter((l) => seen.indexOf(l[0]) >= 0).length;
+    return '<details class="album"><summary>你见过阿禾的 <b>'.concat(n, "</b>/").concat(AHE_LIVES.length, ' 种人生</summary><div class="lives">').concat(AHE_LIVES.map(([k, t, h]) => seen.indexOf(k) >= 0 ? '<span class="life on"><b>'.concat(t, "</b></span>") : '<span class="life"><b>？</b><small>'.concat(h, "</small></span>")).join(""), '</div><p class="hint">完整版每局都有阿禾。他成为什么样的人，看你怎么治理。</p></details>');
   }
   function aheLife() {
     const A = G.ahe;
@@ -2567,6 +2580,25 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
     s += '<text x="'.concat(W - pad, '" y="').concat(Ht - 6, '" font-size="12" text-anchor="end" fill="var(--muted)">回合</text></svg>');
     return s;
   }
+  function nearMiss() {
+    if (CH) return "";
+    const al = [1, 2, 3, 4].filter(alive), me = count(0), L = [];
+    if (G.ending !== "utopia" && me > 0) {
+      const peace = Math.min(10, G.peaceStreak || 0), happy = G.happyAll;
+      L.push({ k: "星海共和", v: peace / 10 * (happy ? 1 : 0.7), t: "和平 ".concat(peace, "/10 回合").concat(happy ? "，各家民心都已达到 65" : "，还有势力的民心没到 65") });
+    }
+    if (G.ending !== "leader" && me > 0 && al.length) {
+      const n = al.filter((f) => allied(0, f)).length, top = me > Math.max(...al.map(count));
+      L.push({ k: "盟主", v: n / al.length * (top ? 1 : 0.6), t: "和剩下的 ".concat(al.length, " 家里结盟了 ").concat(n, " 家").concat(top ? "，你最强" : "，你还不是最强") });
+    }
+    if (G.ending !== "conquer" && me > 0) {
+      const rest = al.reduce((s, f) => s + count(f), 0), tot = G.planets.length;
+      L.push({ k: "一统星域", v: Math.max(0, 1 - rest / Math.max(1, tot - me + rest)) * (me / (me + rest)), t: "还剩 ".concat(al.length, " 家、").concat(rest, " 颗星球没插上你的旗") });
+    }
+    const top2 = L.sort((a, b) => b.v - a.v).slice(0, 2).filter((x) => x.v > 0.05);
+    if (!top2.length) return "";
+    return '<div class="nearmiss"><b>差一点</b>'.concat(top2.map((x) => '<div class="nm">'.concat(x.k, "：").concat(x.t, '<div class="bar"><i style="width:').concat(Math.round(x.v * 100), '%"></i></div></div>')).join(""), '<small class="hint">下一局，试试离它更近一点。</small></div>');
+  }
   function endingCard() {
     const e = G.ending || "time", ex = G.exileTurns && G.ending === "dead" ? "你当了 ".concat(G.exileTurns, " 回合苦力，还是没能翻身。") : "";
     const T = {
@@ -2588,7 +2620,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
     if (CH) return chapterEnd();
     const r = analyze(), top = r.findings[0];
     const others = [1, 2, 3, 4].map((f) => "".concat(FACTIONS[f].name, " ").concat(r.counts[f], " 个")).join("，");
-    let h = endingCard() + (G.ahe ? '<div class="ahecard"><b>阿禾</b>　'.concat(aheLife(), "</div>") : "") + '<h2>复盘</h2><p class="sub">'.concat(DIFF[CFG.diff].name, "难度，").concat(G.maxTurn === Infinity ? "无尽模式（打了 ".concat(G.hist.length, " 回合）") : G.maxTurn + " 回合", "，混乱事件").concat(CFG.chaos ? "开" : "关", "</p><p>").concat(r.counts[0] === 0 ? "你在第 ".concat(G.hist.length, " 回合失去了全部星球。") : "你排第 ".concat(r.rank, " 名，最后守住 ").concat(r.counts[0], " 个星球。")).concat(others, "。</p>");
+    let h = endingCard() + (G.ahe ? '<div class="ahecard"><b>阿禾</b>　'.concat(aheLife()).concat(G.aheNew ? "<br><small>新的一种人生！你见过阿禾的 ".concat(store.get("aheSeen", []).filter((k) => AHE_LIVES.some((l) => l[0] === k)).length, "/").concat(AHE_LIVES.length, " 种人生。</small>") : "", "</div>") : "") + nearMiss() + '<h2>复盘</h2><p class="sub">'.concat(DIFF[CFG.diff].name, "难度，").concat(G.maxTurn === Infinity ? "无尽模式（打了 ".concat(G.hist.length, " 回合）") : G.maxTurn + " 回合", "，混乱事件").concat(CFG.chaos ? "开" : "关", "</p><p>").concat(r.counts[0] === 0 ? "你在第 ".concat(G.hist.length, " 回合失去了全部星球。") : "你排第 ".concat(r.rank, " 名，最后守住 ").concat(r.counts[0], " 个星球。")).concat(others, "。</p>");
     const at = (n) => n <= r.pa.counts.length && n <= G.hist.length ? "第 ".concat(n, " 回合：你 ").concat(G.hist[n - 1].counts[0], " 个，平行宇宙 ").concat(r.pa.counts[n - 1], " 个") : null;
     const marks = [10, 20, 40].filter((n) => n < G.hist.length).map(at).filter(Boolean);
     h += '<div class="core">你这局的打法：<b>'.concat(r.st.name, "</b><br>").concat(r.st.text, "</div>");
@@ -2631,14 +2663,17 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
     const svg = document.querySelector("#home .minimap"), cap = document.getElementById("mmcap");
     if (!svg || !cap) return;
     const last = '<span class="last on">你可以不让它发生。</span>';
+    const HD = 5 + Math.floor(Math.random() * 6), HA = HD + 2 + Math.floor(Math.random() * 6), N = HD * 2e3 + Math.floor(Math.random() * 7) * 600;
+    const fmtN = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     if (heroPlayed || window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      cap.innerHTML = "上一场仗，<b>8,000</b> 人没能回家。" + last;
+      cap.innerHTML = "上一场仗，<b>".concat(fmtN(N), "</b> 人没能回家。") + last;
       return;
     }
     heroPlayed = true;
     const ns = "http://www.w3.org/2000/svg", tg = [...svg.querySelectorAll("g[transform]")].find((g) => g.getAttribute("transform") === "translate(330,170)");
     if (!tg) return;
     const body = tg.querySelector(".mm-p4"), num = tg.querySelector("text");
+    if (num) num.textContent = String(HD);
     const f = document.createElementNS(ns, "circle");
     f.setAttribute("r", "11");
     f.setAttribute("class", "mm-ship s1");
@@ -2660,8 +2695,8 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
       svg.appendChild(r);
       setTimeout(() => r.remove(), 950);
       if (body) body.setAttribute("class", "mm-p1");
-      if (num) num.textContent = "3";
-      const c0 = performance.now(), CD = 1400, N = 8e3;
+      if (num) num.textContent = String(HA - HD);
+      const c0 = performance.now(), CD = 1400;
       const count2 = (t2) => {
         const q = Math.min(1, (t2 - c0) / CD), v = Math.round(N * (1 - Math.pow(1 - q, 3)));
         cap.innerHTML = "这一仗，<b>".concat(fmt2(v), '</b> 人没能回家。<span class="last"></span>');
@@ -2693,7 +2728,7 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
       return "".concat(d.getMonth() + 1, "月").concat(d.getDate(), "日 ").concat(pad(d.getHours()), ":").concat(pad(d.getMinutes()));
     };
     const el = document.getElementById("home");
-    el.innerHTML = '<div class="hw">\n  <nav class="hnav"><b>星球棋</b><span><button class="sm ghost" data-act="hap" style="margin-right:6px">'.concat(HAP.on ? "震动：开" : "震动：关", '</button><button class="sm ghost" data-act="fxt" style="margin-right:8px">').concat(FX ? "动效：开" : "动效：关", '</button>不用注册 · 存档只在你的设备上</span></nav>\n  <section class="hero2">\n    <h1 class="h1">每一艘战舰上，<br>有 <em>1000</em> 个人。</h1>\n    <p class="lede">《星球棋》是一个关于战争与和平的策略小游戏。五股势力，一片星海。你可以统一它——也可以让每颗星球上的人，都过上好日子。</p>\n    ').concat(MINIMAP, '<p class="mmcap" id="mmcap" aria-live="polite"></p>\n    <div class="cta">\n      ').concat(sl ? '<button class="resume" data-act="resume"><span class="rl">继续</span><span class="rm"><b>'.concat(sl.mode, "</b><small>").concat(sl.turn, " · ").concat(sl.mine, " 颗星 · ").concat(sl.when, '</small></span><span class="ra">›</span></button>') : "", '\n      <button class="').concat(sl ? "big" : "primary big", '" data-act="chapter" data-i="').concat(next < 0 ? 0 : next, '">').concat(sl ? "开新局：" : "").concat(next <= 0 ? sl ? "第一颗星" : "开始：第一颗星" : next < 0 ? "从序章再玩一次" : (sl ? "" : "下一章：") + CHAPTERS[next].name.split(" · ")[1], '</button>\n      <button class="big" data-act="jump" data-to="full">直接玩完整版</button>\n    </div>\n    <p class="counters"><span><b>').concat(hist.length, "</b>局</span><span><b>").concat(ends.length, "</b>/7 种结局</span><span><b>").concat(ppl(killed), "</b>人死在你的炮火下</span><span><b>").concat(ppl(lost), '</b>名你的人没能回家</span></p>\n  </section>\n  <section class="hsec"><h2>一章，只学一样东西</h2><p class="hsub">每章十几回合。没学到的功能，画面上不会出现。</p>\n  <div class="chapters">').concat(CHAPTERS.map((c, i) => '<button class="chap'.concat(i === next ? " next" : "", '" data-act="chapter" data-i="').concat(i, '"><span class="no">').concat(["序", "一", "二", "三"][i], '</span><span class="ct"><b>').concat(c.name.split(" · ")[1], "</b><small>").concat(c.line, '</small></span><span class="st">').concat(done.indexOf(c.key) >= 0 ? "✓ 通过" : i === next ? "下一章" : "", "</span></button>")).join(""), '</div></section>\n  <section class="hsec" id="full"><h2>完整的星域</h2><p class="hsub">外交、民心、金融、种族、混乱事件，全部打开。打出你自己的结局。</p>\n  <div class="setrow"><span>回合</span><div class="row">').concat(opt("turns", 40, "40")).concat(opt("turns", 60, "60")).concat(opt("turns", 100, "100")).concat(opt("turns", 0, "无尽"), '</div></div>\n  <div class="setrow"><span>难度</span><div class="row">').concat(opt("diff", "normal", "普通")).concat(opt("diff", "hard", "困难")).concat(opt("diff", "hell", "地狱"), '</div></div>\n  <div class="setrow"><span>种族</span><div class="row">').concat(Object.keys(MYRACE).map((k) => opt("race", k, MYRACE[k].name)).join(""), '</div></div>\n  <p class="hsub small">').concat(MYRACE[CFG.race].name, "——长处：").concat(MYRACE[CFG.race].plus, "；短处：").concat(MYRACE[CFG.race].minus, '。</p>\n  <div class="setrow"><span>混乱事件</span><div class="row">').concat(opt("chaos", true, "开")).concat(opt("chaos", false, "关"), '</div></div>\n  <button class="primary big wide" data-act="start">开始</button></section>\n  <section class="hsec"><h2>结局图鉴</h2><p class="hsub">在完整版里打出过的结局会亮起来。</p>\n  <div class="ends">').concat(ENDS.map(([k, n, d]) => ends.indexOf(k) >= 0 ? '<div class="end on e-'.concat(k, '"><b>').concat(n, "</b><small>").concat(d, "</small></div>") : '<div class="end"><b>？？？</b><small>还没打出来</small></div>').join(""), '</div></section>\n  <section class="hsec"><h2>我的星史</h2>').concat(hist.length ? '<ul class="hist">'.concat(hist.slice(0, 12).map((x) => '<li><span class="hd">'.concat(fd(x.t), '</span><span class="hm"><b>').concat(x.ch ? x.win ? "通过" : "未通过" : endName(x.end), "</b><small>").concat(x.mode, " · ").concat(x.turns, " 回合 · 我方阵亡 ").concat(ppl(x.dm || 0), " · 对方阵亡 ").concat(ppl(x.dt || 0), "</small></span></li>")).join(""), "</ul>") : '<p class="hsub">还没有打完过一局。打完的每一局都会记在这里，只存在你的设备上。</p>', '</section>\n  <section class="hsec"><h2>放到主屏幕</h2><p class="hsub">像 App 一样一点就开，断网也能玩。<br>iPhone / iPad：在 Safari 里点「分享」按钮，再点「添加到主屏幕」。<br>安卓：在浏览器菜单里找「添加到主屏幕」或「添加到桌面」。</p></section>\n  <footer class="hfoot">星球棋 v18 · 用 Claude 做的 · 不联网、不注册、不收集任何数据</footer>\n  </div>');
+    el.innerHTML = '<div class="hw">\n  <nav class="hnav"><b>星球棋</b><span><button class="sm ghost" data-act="hap" style="margin-right:6px">'.concat(HAP.on ? "震动：开" : "震动：关", '</button><button class="sm ghost" data-act="fxt" style="margin-right:8px">').concat(FX ? "动效：开" : "动效：关", '</button>不用注册 · 存档只在你的设备上</span></nav>\n  <section class="hero2">\n    <h1 class="h1">每一艘战舰上，<br>有 <em>1000</em> 个人。</h1>\n    <p class="lede">《星球棋》是一个关于战争与和平的策略小游戏。五股势力，一片星海。你可以统一它——也可以让每颗星球上的人，都过上好日子。</p>\n    ').concat(MINIMAP, '<p class="mmcap" id="mmcap" aria-live="polite"></p>\n    <div class="cta">\n      ').concat(sl ? '<button class="resume" data-act="resume"><span class="rl">继续</span><span class="rm"><b>'.concat(sl.mode, "</b><small>").concat(sl.turn, " · ").concat(sl.mine, " 颗星 · ").concat(sl.when, '</small></span><span class="ra">›</span></button>') : "", '\n      <button class="').concat(sl ? "big" : "primary big", '" data-act="chapter" data-i="').concat(next < 0 ? 0 : next, '">').concat(sl ? "开新局：" : "").concat(next <= 0 ? sl ? "第一颗星" : "开始：第一颗星" : next < 0 ? "从序章再玩一次" : (sl ? "" : "下一章：") + CHAPTERS[next].name.split(" · ")[1], '</button>\n      <button class="big" data-act="jump" data-to="full">直接玩完整版</button>\n    </div>\n    ').concat(aheAlbum(), '\n    <p class="counters"><span><b>').concat(hist.length, "</b>局</span><span><b>").concat(ends.length, "</b>/7 种结局</span><span><b>").concat(ppl(killed), "</b>人死在你的炮火下</span><span><b>").concat(ppl(lost), '</b>名你的人没能回家</span></p>\n  </section>\n  <section class="hsec"><h2>一章，只学一样东西</h2><p class="hsub">每章十几回合。没学到的功能，画面上不会出现。</p>\n  <div class="chapters">').concat(CHAPTERS.map((c, i) => '<button class="chap'.concat(i === next ? " next" : "", '" data-act="chapter" data-i="').concat(i, '"><span class="no">').concat(["序", "一", "二", "三"][i], '</span><span class="ct"><b>').concat(c.name.split(" · ")[1], "</b><small>").concat(c.line, '</small></span><span class="st">').concat(done.indexOf(c.key) >= 0 ? "✓ 通过" : i === next ? "下一章" : "", "</span></button>")).join(""), '</div></section>\n  <section class="hsec" id="full"><h2>完整的星域</h2><p class="hsub">外交、民心、金融、种族、混乱事件，全部打开。打出你自己的结局。</p>\n  <div class="setrow"><span>回合</span><div class="row">').concat(opt("turns", 40, "40")).concat(opt("turns", 60, "60")).concat(opt("turns", 100, "100")).concat(opt("turns", 0, "无尽"), '</div></div>\n  <div class="setrow"><span>难度</span><div class="row">').concat(opt("diff", "normal", "普通")).concat(opt("diff", "hard", "困难")).concat(opt("diff", "hell", "地狱"), '</div></div>\n  <div class="setrow"><span>种族</span><div class="row">').concat(Object.keys(MYRACE).map((k) => opt("race", k, MYRACE[k].name)).join(""), '</div></div>\n  <p class="hsub small">').concat(MYRACE[CFG.race].name, "——长处：").concat(MYRACE[CFG.race].plus, "；短处：").concat(MYRACE[CFG.race].minus, '。</p>\n  <div class="setrow"><span>混乱事件</span><div class="row">').concat(opt("chaos", true, "开")).concat(opt("chaos", false, "关"), '</div></div>\n  <button class="primary big wide" data-act="start">开始</button></section>\n  <section class="hsec"><h2>结局图鉴</h2><p class="hsub">在完整版里打出过的结局会亮起来。</p>\n  <div class="ends">').concat(ENDS.map(([k, n, d]) => ends.indexOf(k) >= 0 ? '<div class="end on e-'.concat(k, '"><b>').concat(n, "</b><small>").concat(d, "</small></div>") : '<div class="end"><b>？？？</b><small>还没打出来</small></div>').join(""), '</div></section>\n  <section class="hsec"><h2>我的星史</h2>').concat(hist.length ? '<ul class="hist">'.concat(hist.slice(0, 12).map((x) => '<li><span class="hd">'.concat(fd(x.t), '</span><span class="hm"><b>').concat(x.ch ? x.win ? "通过" : "未通过" : endName(x.end), "</b><small>").concat(x.mode, " · ").concat(x.turns, " 回合 · 我方阵亡 ").concat(ppl(x.dm || 0), " · 对方阵亡 ").concat(ppl(x.dt || 0), "</small></span></li>")).join(""), "</ul>") : '<p class="hsub">还没有打完过一局。打完的每一局都会记在这里，只存在你的设备上。</p>', '</section>\n  <section class="hsec"><h2>放到主屏幕</h2><p class="hsub">像 App 一样一点就开，断网也能玩。<br>iPhone / iPad：在 Safari 里点「分享」按钮，再点「添加到主屏幕」。<br>安卓：在浏览器菜单里找「添加到主屏幕」或「添加到桌面」。</p></section>\n  <footer class="hfoot">星球棋 v19 · 用 Claude 做的 · 不联网、不注册、不收集任何数据</footer>\n  </div>');
     el.classList.add("show");
     el.scrollTop = 0;
     heroBattle();
@@ -3130,6 +3165,14 @@ var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
     G.recorded = true;
     const h = store.get("history", []);
     h.unshift({ t: Date.now(), mode: CH ? CH.name : "正式星域 · ".concat(DIFF[CFG.diff].name), ch: !!CH, win: CH ? ["chwin", "conquer", "leader"].indexOf(G.ending) >= 0 : null, end: G.ending || "time", turns: G.hist.length, mine: G.planets.filter((p) => p.owner === 0).length, dm: G.toll.mine, dt: G.toll.theirs, rep: G.rep[0], ahe: G.ahe ? aheLife() : "" });
+    if (!CH && G.ahe) {
+      const k = aheKey(), a = store.get("aheSeen", []);
+      if (a.indexOf(k) < 0) {
+        a.push(k);
+        store.set("aheSeen", a);
+        G.aheNew = k;
+      }
+    }
     store.set("history", h.slice(0, 40));
     if (!CH) {
       const e = store.get("ends", []);
